@@ -1,0 +1,6 @@
+train_id,train_type,scheduled_arrival,actual_arrival,delay_minutes,weather,section
+101,Express,10:00,10:15,15,Clear,A
+102,Freight,10:30,10:45,15,Rain,B
+103,Passenger,11:00,11:00,0,Clear,A
+104,Express,11:30,11:50,20,Fog,B
+
