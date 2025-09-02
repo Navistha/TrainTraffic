@@ -1,0 +1,147 @@
+id,station_code,station_name,division,state,latitude,longitude,platforms
+STN001,ABS,Abohar,Ambala,Punjab,30.144,74.196,3
+STN002,AHH,Ahmedgarh,Ambala,Punjab,30.698,75.871,2
+STN003,AADR,Amb Andaura,Ambala,Himachal Pradesh,31.826,76.339,2
+STN004,UMB,Ambala Cantt Jn,Ambala,Haryana,30.36,76.848,8
+STN005,UMBJ,Ambala City,Ambala,Haryana,30.375,76.772,3
+STN006,ASR,Amritsar Jn,Firozpur,Punjab,31.635,74.875,6
+STN007,MBY,Amroha,Moradabad,Uttar Pradesh,28.906,78.47,3
+STN008,ANVR,Anand Vihar,Delhi,Delhi,28.649,77.316,2
+STN009,ANVT,Anand Vihar Terminal,Delhi,Delhi,28.646,77.315,7
+STN010,ANSB,Anandpur Sahib,Ambala,Punjab,31.24,76.501,2
+STN011,AMH,Azamgarh,Lucknow NR,Uttar Pradesh,26.07,83.184,3
+STN012,UMBV,Baddi,Ambala,Himachal Pradesh,30.957,76.791,2
+STN013,BNCY,Badli,Delhi,Delhi,28.751,77.168,3
+STN014,BOY,Ballia,Lucknow NR,Uttar Pradesh,25.76,84.149,3
+STN015,BANI,Banihal,Firozpur,Jammu and Kashmir,33.433,75.196,2
+STN016,BBK,Barabanki Jn,Lucknow NR,Uttar Pradesh,26.938,81.189,4
+STN017,BRML,Baramulla,Firozpur,Jammu and Kashmir,34.205,74.344,2
+STN018,BTP,Barara,Ambala,Haryana,30.246,77.048,2
+STN019,BRY,Bareilly City,Moradabad,Uttar Pradesh,28.357,79.43,3
+STN020,BE,Bareilly Jn,Moradabad,Uttar Pradesh,28.364,79.415,5
+STN021,BNN,Barnala,Ambala,Punjab,30.377,75.547,2
+STN022,BLZ,Batala Jn,Firozpur,Punjab,31.822,75.205,3
+STN023,BTIC,Bathinda Cantt,Ambala,Punjab,30.21,74.964,2
+STN024,BATH,Bathinda Jn,Firozpur,Punjab,30.213,74.945,7
+STN025,BZC,Bazida Jattan,Ambala,Haryana,30.111,77.314,2
+STN026,BEAS,Beas Jn,Firozpur,Punjab,31.545,75.287,2
+STN027,BHL,Bharoli Junction,Firozpur,Punjab,32.339,75.651,2
+STN028,BEQ,Bhattinda Cantt Cabin,Ambala,Punjab,30.206,74.941,2
+STN029,BKE,Bhiwani Jn,Delhi,Haryana,28.793,76.139,4
+STN030,BHLR,BholaRai Halt,Firozpur,Punjab,30.166,75.003,2
+STN031,BJO,Bijnor,Moradabad,Uttar Pradesh,29.374,78.136,2
+STN032,BNO,Bohani,Firozpur,Punjab,31.117,75.455,2
+STN033,BDGM,Budgam,Firozpur,Jammu and Kashmir,34.017,74.738,2
+STN034,BUIJ,Budhi,Ambala,Haryana,30.15,76.786,2
+STN035,CPS,Chandausi Jn,Moradabad,Uttar Pradesh,28.458,78.783,4
+STN036,CNDM,Chandi Mandir,Ambala,Haryana,30.705,76.879,2
+STN037,CDG,Chandigarh Jn,Ambala,Chandigarh,30.705,76.795,6
+STN038,DUIR,Chowki-Manki,Ambala,Himachal Pradesh,31.771,76.228,2
+STN039,GZBX,Dadri,Delhi,Uttar Pradesh,28.574,77.554,3
+STN040,DUI,Daulatpur Chowk,Ambala,Himachal Pradesh,31.778,76.2,2
+STN041,DDN,Dehradun,Moradabad,Uttarakhand,30.319,78.031,4
+STN042,DEC,Delhi Cantonment,Delhi,Delhi,28.61,77.129,5
+STN043,DLI,Delhi Junction,Delhi,Delhi,28.667,77.232,16
+STN044,DEE,Delhi Sarai Rohilla,Delhi,Delhi,28.665,77.185,6
+STN045,DSA,Delhi Shahdara,Delhi,Delhi,28.673,77.289,5
+STN046,DER,Derabassi,Ambala,Punjab,30.589,76.846,2
+STN047,DHURI,Dhuri Jn,Ambala,Punjab,30.371,75.869,3
+STN048,FDB,Faridabad,Delhi,Haryana,28.403,77.314,4
+STN049,FGR,Fatehgarh Sahib,Ambala,Punjab,30.644,76.401,2
+STN050,FZR,Firozpur Cantt Jn,Firozpur,Punjab,30.925,74.613,4
+STN051,GAJ,Gajraula Jn,Moradabad,Uttar Pradesh,28.845,78.24,3
+STN052,GNA,Ganaur,Delhi,Haryana,29.148,77.015,2
+STN053,GZB,Ghaziabad Jn,Delhi,Uttar Pradesh,28.669,77.435,6
+STN054,GHGL,Ghuggar,Ambala,Himachal Pradesh,31.101,76.397,2
+STN055,GHD,Gidarpindi,Firozpur,Punjab,31.019,75.116,2
+STN056,GHH,Gohana,Delhi,Haryana,29.138,76.702,2
+STN057,GSP,Gurdaspur,Firozpur,Punjab,32.041,75.41,2
+STN058,GZO,Gurdwara Lohian,Ambala,Punjab,31.131,75.328,2
+STN059,GGN,Gurgaon,Delhi,Haryana,28.459,77.042,3
+STN060,HPU,Hapur Jn,Delhi,Uttar Pradesh,28.73,77.78,4
+STN061,HPUO,Hapur Outer Cabin,Delhi,Uttar Pradesh,28.742,77.784,2
+STN062,HRI,Hardoi,Lucknow NR,Uttar Pradesh,27.394,80.126,3
+STN063,HW,Haridwar Jn,Moradabad,Uttarakhand,29.947,78.16,4
+STN064,NZM,Hazrat Nizamuddin,Delhi,Delhi,28.589,77.251,7
+STN065,NZMZ,Hazrat Nizamuddin Cabin,Delhi,Delhi,28.583,77.259,2
+STN066,HSR,Hisar Jn,Ambala,Haryana,29.159,75.747,5
+STN067,HSX,Hoshiarpur,Firozpur,Punjab,31.536,75.911,2
+STN068,PNPX,Israna,Ambala,Haryana,29.312,76.829,2
+STN069,YJUD,Jagadhri,Ambala,Haryana,30.172,77.293,3
+STN070,JPZ,Jagadhri City,Ambala,Haryana,30.171,77.286,2
+STN071,JUDW,Jagadhri Workshop,Ambala,Haryana,30.167,77.302,3
+STN072,JKHI,Jakhal Jn,Ambala,Punjab,29.796,75.823,3
+STN073,JRC,Jalandhar Cantt,Firozpur,Punjab,31.301,75.632,3
+STN074,JUC,Jalandhar City Jn,Firozpur,Punjab,31.326,75.576,6
+STN075,JAT,Jammu Tawi,Firozpur,Jammu and Kashmir,32.71,74.855,3
+STN076,JNU,Janghai Jn,Lucknow NR,Uttar Pradesh,25.746,82.437,3
+STN077,JHL,Jind Jn,Ambala,Haryana,29.316,76.317,4
+STN078,KLKJK,Jutogh (Kalka-Simla),Ambala,Himachal Pradesh,31.108,77.164,2
+STN079,KLMR,Kalanwali,Ambala,Haryana,29.83,74.971,2
+STN080,KLK,Kalka,Ambala,Haryana,30.838,76.941,3
+STN081,KRE,Kapurthala,Firozpur,Punjab,31.373,75.401,2
+STN082,KUN,Karnal,Ambala,Haryana,29.695,76.984,3
+STN083,KART,Kartarpur,Firozpur,Punjab,31.442,75.5,2
+STN084,KAPR,Khanna,Ambala,Punjab,30.703,76.215,2
+STN085,KKW,Kharkhauda,Delhi,Haryana,28.878,76.911,2
+STN086,KEM,Khem Karan,Firozpur,Punjab,31.142,74.548,2
+STN087,KNN,Kurali,Ambala,Punjab,30.836,76.575,2
+STN088,KKDE,Kurukshetra Jn,Ambala,Haryana,29.969,76.847,5
+STN089,LRJ,Laksar Jn,Moradabad,Uttarakhand,29.758,78.041,4
+STN090,LMG,Lohian Khas Jn,Firozpur,Punjab,31.129,75.334,2
+STN091,BNZ,Lucknow Charbagh,Lucknow NR,Uttar Pradesh,26.838,80.922,9
+STN092,LKO,Lucknow City,Lucknow NR,Uttar Pradesh,26.858,80.922,3
+STN093,LDH,Ludhiana Jn,Firozpur,Punjab,30.901,75.857,8
+STN094,MKT,Malerkotla,Ambala,Punjab,30.522,75.884,2
+STN095,MUT,Meerut Cantt,Delhi,Uttar Pradesh,29,77.692,3
+STN096,MTC,Meerut City,Delhi,Uttar Pradesh,28.983,77.706,6
+STN097,MB,Moradabad,Moradabad,Uttar Pradesh,28.838,78.773,7
+STN098,MUZP,Muzaffarnagar,Delhi,Uttar Pradesh,29.475,77.703,3
+STN099,UMBW,Nalagarh Rd,Ambala,Himachal Pradesh,30.962,76.718,2
+STN100,NGDM,Nangal Dam,Ambala,Punjab,31.38,76.366,3
+STN101,NRW,Narwana Jn,Ambala,Haryana,29.6,76.119,3
+STN102,NDLS,New Delhi,Delhi,Delhi,28.643,77.219,16
+STN103,OKA,Okhla,Delhi,Delhi,28.548,77.279,3
+STN104,PNP,Panipat Jn,Ambala,Haryana,29.391,76.963,5
+STN105,PNKD,Panipat Refinery,Ambala,Haryana,29.418,76.918,2
+STN106,PTKC,Pathankot Cantt,Firozpur,Punjab,32.257,75.645,3
+STN107,PTK,Pathankot Jn,Firozpur,Punjab,32.273,75.647,3
+STN108,PATL,Patiala,Ambala,Punjab,30.339,76.386,4
+STN109,PGW,Phagwara Jn,Firozpur,Punjab,31.223,75.773,3
+STN110,PHR,Phillaur Jn,Firozpur,Punjab,31.021,75.787,3
+STN111,PBH,Pratapgarh Jn,Lucknow NR,Uttar Pradesh,25.9,81.863,4
+STN112,QG,Qazigund,Firozpur,Jammu and Kashmir,33.56,75.158,2
+STN113,RBL,Rae Bareli Jn,Lucknow NR,Uttar Pradesh,26.228,81.24,3
+STN114,RPJ,Rajpura Jn,Ambala,Punjab,30.482,76.594,4
+STN115,RMR,Ramnagar,Moradabad,Uttarakhand,29.392,79.126,3
+STN116,RMU,Rampur Jn,Moradabad,Uttar Pradesh,28.803,79.029,4
+STN117,RE,Rewari Jn,Delhi,Haryana,28.197,76.617,5
+STN118,RKSH,Rishikesh,Moradabad,Uttarakhand,30.107,78.294,3
+STN119,ROK,Rohtak Jn,Delhi,Haryana,28.894,76.606,4
+STN120,RK,Roorkee,Moradabad,Uttarakhand,29.866,77.891,3
+STN121,ROZA,Roza Jn,Moradabad,Uttar Pradesh,27.892,79.912,3
+STN122,RPAR,Rupnagar,Ambala,Punjab,30.966,76.526,2
+STN123,SRE,Saharanpur Jn,Ambala,Uttar Pradesh,29.972,77.549,6
+STN124,ROKX,Sampla,Delhi,Haryana,28.775,76.854,2
+STN125,SAG,Sangrur,Ambala,Punjab,30.245,75.846,3
+STN126,SASN,SAS Nagar Mohali,Ambala,Punjab,30.704,76.714,2
+STN127,DSAJ,Shahdara Jn Cabin,Delhi,Delhi,28.673,77.295,2
+STN128,SHG,Shahganj Jn,Lucknow NR,Uttar Pradesh,26.049,82.686,3
+STN129,SJN,Shahjahanpur,Moradabad,Uttar Pradesh,27.87,79.91,3
+STN130,SBB,Shakur Basti,Delhi,Delhi,28.675,77.148,6
+STN131,UMBH,Shambhu,Ambala,Punjab,30.429,76.451,2
+STN132,SML,Shimla,Ambala,Himachal Pradesh,31.104,77.172,3
+STN133,SIR,Sirhind Jn,Ambala,Punjab,30.645,76.383,4
+STN134,SNP,Sonipat Jn,Delhi,Haryana,28.995,77.012,3
+STN135,SINA,Srinagar (Valley),Firozpur,Jammu and Kashmir,34.073,74.816,3
+STN136,DLIY,Subzi Mandi,Delhi,Delhi,28.666,77.194,3
+STN137,SZM,Subzi Mandi,Delhi,Delhi,28.666,77.194,3
+STN138,SNPJ,Suchetgarh (proximity),Firozpur,Jammu and Kashmir,32.612,74.74,2
+STN139,SLN,Sultanpur,Lucknow NR,Uttar Pradesh,26.263,82.072,3
+STN140,TTO,Tarn Taran,Firozpur,Punjab,31.451,74.927,2
+STN141,KKDEY,Thanesar City,Ambala,Haryana,29.973,76.832,2
+STN142,TKJ,Tilak Bridge,Delhi,Delhi,28.626,77.241,2
+STN143,TOU,Tohana,Ambala,Haryana,29.713,75.907,3
+STN144,UDHP,Udhampur,Firozpur,Jammu and Kashmir,32.924,75.141,2
+STN145,SREY,Yamunanagar Jagadhri,Ambala,Haryana,30.14,77.3,3
+STN146,YJUD,Yamunanagar-Jagadhri,Ambala,Haryana,30.14,77.294,3
