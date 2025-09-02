@@ -9,7 +9,7 @@ def employee_login(request):
     if request.method == "POST":
         data = json.loads(request.body)
         work_id = data.get("work_id")
-        password = data.get("password")
+        password = data.get("role")
 
         user = authenticate(request, work_id=work_id, password=password)
 
