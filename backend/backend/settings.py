@@ -84,9 +84,9 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'train',
-        'USER': 'train_user',
-        'PASSWORD': 'traintraffic',
+        'NAME': 'traintraffic_db',
+        'USER': 'traintrafficuser',
+        'PASSWORD': 'trainsdb',
         'HOST': 'localhost',
         'PORT': '5432',
     }
