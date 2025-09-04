@@ -18,3 +18,7 @@ venv/
 
 # OS files
 .DS_Store
+
+# Helper files
+add_missing_tracks.py
+debug_missing_segments.py
