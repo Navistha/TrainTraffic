@@ -1,0 +1,49 @@
+{
+  "12345": {
+    "name": "Demo Express",
+    "polyline": [
+      {
+        "lat": 28.6139,
+        "lng": 77.209
+      },
+      {
+        "lat": 26.4499,
+        "lng": 80.3319
+      },
+      {
+        "lat": 25.4358,
+        "lng": 81.8463
+      },
+      {
+        "lat": 25.3176,
+        "lng": 82.9739
+      }
+    ],
+    "stations": [
+      {
+        "code": "NDLS",
+        "name": "New Delhi",
+        "lat": 28.6139,
+        "lng": 77.209
+      },
+      {
+        "code": "CNB",
+        "name": "Kanpur Central",
+        "lat": 26.4499,
+        "lng": 80.3319
+      },
+      {
+        "code": "ALD",
+        "name": "Prayagraj Jn",
+        "lat": 25.4358,
+        "lng": 81.8463
+      },
+      {
+        "code": "BSB",
+        "name": "Varanasi Jn",
+        "lat": 25.3176,
+        "lng": 82.9739
+      }
+    ]
+  }
+}

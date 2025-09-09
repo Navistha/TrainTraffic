@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  
+</body>
+</html>
+<head>
+  <title>Passenger Train Tracker</title>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    #map { height: 90vh; width: 100%; }
+    body { margin: 0; font-family: Arial, sans-serif; }
+    #sidebar {
+      height: 10vh;
+      padding: 8px;
+      background: #f0f0f0;
+      font-size: 14px;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+    }
+    .train-info {
+      background: white;
+      padding: 5px 10px;
+      border-radius: 6px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div id="sidebar">
+    <div id="train_12345" class="train-info">Train 12345: Loading...</div>
+    <div id="train_54321" class="train-info">Train 54321: Loading...</div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    const map = L.map('map').setView([23.5, 80], 5); // India center
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Draw route for each train
+    function drawRoute(trainNo) {
+      fetch(`http://127.0.0.1:8000/route/${trainNo}`)
+        .then(res => res.json())
+        .then(data => {
+          const coords = data.route.map(st => [st.lat, st.lon]);
+          L.polyline(coords, {color: 'blue', weight: 3, opacity: 0.7}).addTo(map);
+
+          data.route.forEach(st => {
+            L.marker([st.lat, st.lon]).addTo(map)
+              .bindPopup(`<b>${st.station}</b>`);
+          });
+        });
+    }
+
+    drawRoute("12345");
+    drawRoute("54321");
+
+    // Update train position + delay
+    function updateTrain(trainNo) {
+      fetch(`http://127.0.0.1:8000/position/${trainNo}`)
+        .then(res => res.json())
+        .then(pos => {
+          const { lat, lon, next_station } = pos;
+
+          if (window[`marker_${trainNo}`]) {
+            window[`marker_${trainNo}`].setLatLng([lat, lon]);
+          } else {
+            window[`marker_${trainNo}`] = L.marker([lat, lon], {icon: L.icon({
+              iconUrl: "https://cdn-icons-png.flaticon.com/512/61/61205.png",
+              iconSize: [25, 25]
+            })}).addTo(map);
+          }
+
+          // Fetch delay info
+          fetch(`http://127.0.0.1:8000/predict-delay/${trainNo}`)
+            .then(res => res.json())
+            .then(delayData => {
+              const popupContent = `
+                <b>Train ${trainNo}</b><br>
+                Next Station: ${next_station}<br>
+                Predicted Delay: ${delayData.predicted_delay} min<br>
+                New ETA: ${delayData.new_eta}
+              `;
+              window[`marker_${trainNo}`].bindPopup(popupContent);
+
+              // Also update sidebar
+              document.getElementById(`train_${trainNo}`).innerHTML =
+                `🚆 Train ${trainNo} → ${next_station} | Delay: ${delayData.predicted_delay} min | ETA: ${delayData.new_eta}`;
+            });
+        });
+    }
+
+    // Update both trains every 5 sec
+    setInterval(() => {
+      updateTrain("12345");
+      updateTrain("54321");
+    }, 5000);
+  </script>
+</body>
+</html>
