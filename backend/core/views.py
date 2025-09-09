@@ -1,29 +1,21 @@
-from django.shortcuts import render
-from django.contrib.auth import authenticate, login
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-import json
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from django.contrib.auth import login
+from .serializer import EmployeeLoginSerializer
 
-@csrf_exempt
-def employee_login(request):
-    if request.method == "POST":
-        data = json.loads(request.body)
-        work_id = data.get("work_id")
-        password = data.get("role")
-
-        user = authenticate(request, work_id=work_id, password=password)
-
-        if user is not None:
-            login(request, user)
-            return JsonResponse({
+class EmployeeLoginView(APIView):
+    def post(self, request):
+        serializer = EmployeeLoginSerializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.validated_data["user"]
+            #login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+            return Response({
                 "message": "Login successful",
                 "employee": {
-                    "id": user.id,
+                    "id": user.govt_id,
                     "name": user.name,
                     "role": user.role,
                 }
-            })
-        else:
-            return JsonResponse({"error": "Invalid credentials"}, status=400)
-
-    return JsonResponse({"error": "POST request required"}, status=405)
+            }, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

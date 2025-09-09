@@ -22,7 +22,7 @@ class TrackAdmin(admin.ModelAdmin):
 
 @admin.register(RailwayWorker)
 class RailwayWorkerAdmin(admin.ModelAdmin):
-    list_display = ('worker_id', 'name', 'designation', 'department', 'assigned_station')
+    list_display = ("govt_id", "name", "role", "level", "assigned_station")
 
 
 @admin.register(RealTimeDelay)

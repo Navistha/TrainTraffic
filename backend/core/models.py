@@ -19,10 +19,15 @@ class EmployeeManager(BaseUserManager):
 
 class Employee(AbstractBaseUser, PermissionsMixin):
     ROLE_CHOICES = [
-        ("signal_operator", "Signal Operator"),
-        ("maintenance", "Maintenance Crew"),
-        ("station_staff", "Station Staff"),
-        ("admin", "Administrator"),
+        ("control_officer", "Control Officer"),
+        ("divisional_traffic_manager", "Divisional Traffic Manager"),
+        ("station_master", "Station Master"),
+        ("yard_master", "Yard Master"),
+        ("signal_inspector", "Signal Inspector"),
+        ("loco_pilot", "Loco Pilot"),
+        ("assistant_loco_pilot", "Assistant Loco Pilot"),
+        ("gatekeeper", "Gatekeeper"),
+        ("pointsman", "Pointsman"),
     ]
 
     work_id = models.CharField(max_length=50, unique=True)
@@ -88,17 +93,17 @@ class Track(models.Model):
 
 
 class RailwayWorker(models.Model):
-    worker_id = models.AutoField(primary_key=True)
+    govt_id = models.CharField(max_length=20, primary_key=True)  # GOVT0001 etc.
     name = models.CharField(max_length=255)
-    designation = models.CharField(max_length=100)
-    department = models.CharField(max_length=100)
-    assigned_station = models.CharField(max_length=10, blank=True, null=True)
+    role = models.CharField(max_length=100)  # e.g. Control Officer
+    level = models.IntegerField()  # e.g. 1
+    assigned_station = models.CharField(max_length=10, blank=True, null=True)  # e.g. STN004
 
     class Meta:
         db_table = "railway_workers"
 
     def __str__(self):
-        return f"{self.name} ({self.designation})"
+        return f"{self.name} ({self.role})"
 
 
 class RealTimeDelay(models.Model):
@@ -108,6 +113,7 @@ class RealTimeDelay(models.Model):
     scheduled_arrival = models.DateTimeField()
     actual_arrival = models.DateTimeField(blank=True, null=True)
     delay_minutes = models.IntegerField(default=0)
+    predicted_delay = models.FloatField(default=0) 
 
     class Meta:
         db_table = "realtime_delay"
