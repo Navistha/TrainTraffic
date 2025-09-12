@@ -59,10 +59,10 @@ def load_data(data_root: str) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame,
     trains_path = os.path.join(data_root, "trains.csv")
     stations_path = os.path.join(data_root, "stations.csv")
     tracks_path = os.path.join(data_root, "tracks.csv")
-    updates_path = os.path.join(data_root, "realtime_update.csv")
+    updates_path = os.path.join(data_root, "train_delay_data.csv")
     if not os.path.exists(updates_path):
         # allow plural or different name
-        alt = os.path.join(data_root, "realtime_updates.csv")
+        alt = os.path.join(data_root, "train_delay_data.csv")
         if os.path.exists(alt):
             updates_path = alt
 

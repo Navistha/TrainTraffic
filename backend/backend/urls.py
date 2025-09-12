@@ -18,9 +18,11 @@ from django.contrib import admin
 from django.urls import path
 from ml.views import PredictTrainDelay
 from core.views import EmployeeLoginView
+from scheduler.views import ScheduleResultViewSet
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path("api/predict-delay/", PredictTrainDelay.as_view(), name="predict-delay"),
     path("login/",EmployeeLoginView.as_view(), name="employee_login"),
+    path("api/schedule-results/", ScheduleResultViewSet.as_view({'get': 'list', 'post': 'create'}), name="schedule-results"),
 ]
