@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'logs',
     'scheduler',
     'ml',
+    'decision_engine',
     
 ]
 
