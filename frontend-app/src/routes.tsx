@@ -14,9 +14,7 @@ function AppRoutes() {
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/final" element={<FinalPage />} />
         <Route path="/simulation" element={<SimulationPage />} />
-
-        {/* Default Route */}
-        <Route path="*" element={<DashboardPage />} />
+        <Route path="*" element={<AuthenticationPage />} />
       </Routes>
     </Router>
   );
