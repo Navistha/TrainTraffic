@@ -59,10 +59,10 @@ def load_data(data_root: str) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame,
     trains_path = os.path.join(data_root, "trains.csv")
     stations_path = os.path.join(data_root, "stations.csv")
     tracks_path = os.path.join(data_root, "tracks.csv")
-    updates_path = os.path.join(data_root, "realtime_update.csv")
+    updates_path = os.path.join(data_root, "train_delay_data.csv")
     if not os.path.exists(updates_path):
         # allow plural or different name
-        alt = os.path.join(data_root, "realtime_updates.csv")
+        alt = os.path.join(data_root, "train_delay_data.csv")
         if os.path.exists(alt):
             updates_path = alt
 
@@ -271,6 +271,51 @@ def route_to_segments(train_row: pd.Series, track_idx: Dict, latest_update_by_tr
 
 
 # ----------------------------
+# Explainable AI Recommendations
+# ----------------------------
+def explain_schedule(out, trains, tracks, updates):
+    """
+    Generates explanations for why each train is scheduled the way it is.
+    Converts all numeric values to Python's built-in types before outputting as JSON.
+
+    Parameters:
+    - out: The schedule output from the optimizer containing trains and their schedules.
+    - trains: The DataFrame with train details.
+    - tracks: The DataFrame with track details.
+    - updates: Latest updates about delays, weather, etc.
+
+    Returns:
+    - A dictionary mapping each train ID to a list of human-readable explanations.
+    """
+    explanations = {}  # Dictionary to hold explanations per train
+
+    for tid, tinfo in out["trains"].items():
+        explanation_list = []  # List to hold individual explanation strings
+        
+        # Convert numpy.int64 to Python int explicitly for JSON serialization
+        release_delay = int(tinfo.get("release_delay_min", 0))
+
+        # Explain priority level
+        priority = int(tinfo.get("priority", 3))  # Default priority is 3 if missing
+        explanation_list.append(f"Train's priority level is {priority}")
+
+        # Explain release delay
+        explanation_list.append(f"Train's release delay is {release_delay} minutes")
+
+        # Explain each segment in the schedule
+        for seg in tinfo.get("schedule", []):
+            duration = int(seg.get("duration_min", 0))  # Convert duration to int
+            from_station = seg.get("from", "unknown")
+            to_station = seg.get("to", "unknown")
+            explanation_list.append(f"Segment from {from_station} to {to_station} has duration {duration} minutes")
+
+        # Save the explanation list in the dictionary using the train ID as key
+        explanations[tid] = explanation_list
+
+    return explanations
+
+
+# ----------------------------
 # CP-SAT model + solve
 # ----------------------------
 def optimize(data_root: str, now_ts=None, limit_trains=None, time_limit_s: int = 20):
@@ -397,6 +442,13 @@ def optimize(data_root: str, now_ts=None, limit_trains=None, time_limit_s: int =
 
     # enrich with station names + timestamps
     out = enrich_with_timestamps(out, stations, base_now=pd.Timestamp.now(), updates_df=None)
+
+    # Enrich the schedule with explanations
+    explanations = explain_schedule(out, trains, tracks, updates)
+
+    # Print the explanations for each train in a readable format
+    print("\nExplainable AI Recommendations:")
+    print(json.dumps(explanations, indent=2))
 
     print(json.dumps(out, indent=2))
     return out

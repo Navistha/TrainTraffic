@@ -15,8 +15,15 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
+from ml.views import PredictTrainDelay
+from core.views import EmployeeLoginView
+from scheduler.views import ScheduleResultViewSet
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path("api/predict-delay/", PredictTrainDelay.as_view(), name="predict-delay"),
+    path("login/",EmployeeLoginView.as_view(), name="employee_login"),
+    path("api/schedule-results/", ScheduleResultViewSet.as_view({'get': 'list', 'post': 'create'}), name="schedule-results"),
+    path('decision-center/', include('decision_engine.urls')),
 ]
