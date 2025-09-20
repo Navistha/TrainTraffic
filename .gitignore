@@ -11,6 +11,7 @@ venv/
 # Environment files
 .env
 *.env
+*.log
 
 # IDE
 .vscode/
