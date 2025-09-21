@@ -1,0 +1,275 @@
+from rest_framework import generics, status, viewsets, filters
+from rest_framework.decorators import api_view, action
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+# from django_filters.rest_framework import DjangoFilterBackend  # TODO: Install django-filter
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from django.db.models import Q
+from datetime import datetime, timedelta
+import logging
+
+from .models import Station, MaterialType, RouteComplexity, Freight
+from .serializers import (
+    StationSerializer, MaterialTypeSerializer, RouteComplexitySerializer,
+    FreightListSerializer, FreightDetailSerializer, FreightBookingSerializer,
+    FreightBookingResponseSerializer, FreightTrackingSerializer, FreightUpdateSerializer
+)
+from .ml_utils import predict_freight_delay
+
+logger = logging.getLogger(__name__)
+
+
+class StationListView(generics.ListCreateAPIView):
+    """List all stations or create a new station"""
+    queryset = Station.objects.filter(is_active=True)
+    serializer_class = StationSerializer
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['name', 'city', 'state']
+    ordering_fields = ['name', 'city', 'state']
+    ordering = ['name']
+
+
+class StationDetailView(generics.RetrieveUpdateAPIView):
+    """Retrieve or update a specific station"""
+    queryset = Station.objects.all()
+    serializer_class = StationSerializer
+
+
+class MaterialTypeListView(generics.ListCreateAPIView):
+    """List all material types or create a new material type"""
+    queryset = MaterialType.objects.all()
+    serializer_class = MaterialTypeSerializer
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['name', 'description']
+    ordering_fields = ['name']
+    ordering = ['name']
+
+
+class RouteComplexityListView(generics.ListCreateAPIView):
+    """List all route complexities or create a new route complexity"""
+    queryset = RouteComplexity.objects.all()
+    serializer_class = RouteComplexitySerializer
+    filter_backends = [filters.OrderingFilter]
+    # filterset_fields = ['origin', 'destination', 'complexity_score']  # TODO: Add django-filter
+    ordering_fields = ['complexity_score', 'distance_km']
+    ordering = ['complexity_score']
+
+
+class FreightViewSet(viewsets.ModelViewSet):
+    """ViewSet for freight operations"""
+    queryset = Freight.objects.all()
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['freight_id', 'origin__name', 'destination__name', 'material_type__name']
+    # filterset_fields = ['status', 'predicted_delay', 'origin', 'destination', 'material_type']  # TODO: Add django-filter
+    ordering_fields = ['created_at', 'scheduled_departure', 'freight_id']
+    ordering = ['-created_at']
+    
+    def get_serializer_class(self):
+        """Return appropriate serializer based on action"""
+        if self.action == 'list':
+            return FreightListSerializer
+        elif self.action in ['retrieve', 'update', 'partial_update']:
+            return FreightDetailSerializer
+        return FreightDetailSerializer
+    
+    def get_queryset(self):
+        """Filter queryset based on query parameters"""
+        queryset = Freight.objects.select_related('origin', 'destination', 'material_type')
+        
+        # Filter by station (origin or destination)
+        station = self.request.query_params.get('station', None)
+        if station:
+            queryset = queryset.filter(
+                Q(origin__name__icontains=station) | Q(destination__name__icontains=station)
+            )
+        
+        # Filter by date range
+        start_date = self.request.query_params.get('start_date', None)
+        end_date = self.request.query_params.get('end_date', None)
+        
+        if start_date:
+            try:
+                start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+                queryset = queryset.filter(scheduled_departure__date__gte=start_date)
+            except ValueError:
+                pass
+        
+        if end_date:
+            try:
+                end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+                queryset = queryset.filter(scheduled_departure__date__lte=end_date)
+            except ValueError:
+                pass
+        
+        return queryset
+    
+    @action(detail=True, methods=['get'])
+    def track(self, request, pk=None):
+        """Track a specific freight by freight_id"""
+        try:
+            freight = get_object_or_404(Freight, freight_id=pk)
+            
+            # Increment tracking clicks
+            freight.tracking_clicks += 1
+            
+            # Update status based on tracking clicks (simulate progress)
+            if freight.tracking_clicks >= 3 and freight.status not in ['arrived', 'cancelled']:
+                freight.status = 'arrived'
+            elif freight.tracking_clicks >= 2 and freight.status == 'in_transit':
+                freight.status = 'unloading'
+            
+            freight.save()
+            
+            serializer = FreightTrackingSerializer(freight)
+            return Response(serializer.data)
+            
+        except Exception as e:
+            logger.error(f"Error tracking freight {pk}: {str(e)}")
+            return Response(
+                {'error': 'Unable to track freight'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=True, methods=['patch'])
+    def update_status(self, request, pk=None):
+        """Update freight status"""
+        freight = self.get_object()
+        serializer = FreightUpdateSerializer(freight, data=request.data, partial=True)
+        
+        if serializer.is_valid():
+            serializer.save()
+            return Response(FreightDetailSerializer(freight).data)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+def book_freight(request):
+    """Book a new freight"""
+    serializer = FreightBookingSerializer(data=request.data)
+    
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        validated_data = serializer.validated_data
+        
+        # Get stations and material from validated data
+        origin_station = validated_data['origin_station']
+        destination_station = validated_data['destination_station']
+        material = validated_data['material']
+        quantity = float(validated_data['quantity'])
+        scheduled_date = validated_data['scheduled_date']
+        
+        # Calculate departure time (assuming booking time + some buffer)
+        scheduled_departure = datetime.combine(scheduled_date, datetime.min.time().replace(hour=8))
+        scheduled_departure = timezone.make_aware(scheduled_departure)
+        
+        # Predict delay using ML
+        prediction_results = predict_freight_delay(
+            quantity, origin_station.name, destination_station.name
+        )
+        
+        # Calculate estimated arrival time
+        travel_hours = prediction_results['estimated_travel_hours']
+        estimated_arrival = scheduled_departure + timedelta(hours=travel_hours)
+        
+        # Create freight booking
+        freight = Freight.objects.create(
+            origin=origin_station,
+            destination=destination_station,
+            material_type=material,
+            quantity=quantity,
+            scheduled_departure=scheduled_departure,
+            scheduled_arrival=estimated_arrival,
+            predicted_delay=prediction_results['predicted_delay'],
+            delay_probability=prediction_results['delay_probability'],
+            route_complexity=prediction_results['route_complexity'],
+            status='booked',
+            created_by=request.user if request.user.is_authenticated else None
+        )
+        
+        response_data = {
+            'freight_id': freight.freight_id,
+            'message': 'Booking successful',
+            'scheduled_departure': freight.scheduled_departure,
+            'estimated_arrival': freight.scheduled_arrival,
+            'predicted_delay': freight.predicted_delay,
+            'delay_probability': freight.delay_probability
+        }
+        
+        response_serializer = FreightBookingResponseSerializer(response_data)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+        
+    except Exception as e:
+        logger.error(f"Error booking freight: {str(e)}")
+        return Response(
+            {'error': 'Failed to book freight. Please try again.'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+def get_freights_by_station(request):
+    """Get freights filtered by station (origin or destination)"""
+    station = request.GET.get('station')
+    
+    if not station:
+        return Response(
+            {'error': 'Please provide ?station=NAME parameter'}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        freights = Freight.objects.filter(
+            Q(origin__name__icontains=station) | Q(destination__name__icontains=station)
+        ).select_related('origin', 'destination', 'material_type')
+        
+        serializer = FreightListSerializer(freights, many=True)
+        return Response(serializer.data)
+        
+    except Exception as e:
+        logger.error(f"Error fetching freights by station {station}: {str(e)}")
+        return Response(
+            {'error': 'Unable to fetch freights'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+def get_freight_statistics(request):
+    """Get freight statistics and dashboard data"""
+    try:
+        total_freights = Freight.objects.count()
+        active_freights = Freight.objects.exclude(status__in=['arrived', 'cancelled']).count()
+        delayed_freights = Freight.objects.filter(predicted_delay=True).count()
+        arrived_freights = Freight.objects.filter(status='arrived').count()
+        
+        # Status distribution
+        status_counts = {}
+        for choice in Freight.STATUS_CHOICES:
+            status_counts[choice[1]] = Freight.objects.filter(status=choice[0]).count()
+        
+        # Recent bookings (last 7 days)
+        week_ago = timezone.now() - timedelta(days=7)
+        recent_bookings = Freight.objects.filter(created_at__gte=week_ago).count()
+        
+        statistics = {
+            'total_freights': total_freights,
+            'active_freights': active_freights,
+            'delayed_freights': delayed_freights,
+            'arrived_freights': arrived_freights,
+            'recent_bookings': recent_bookings,
+            'status_distribution': status_counts,
+            'delay_rate': round((delayed_freights / total_freights * 100) if total_freights > 0 else 0, 2)
+        }
+        
+        return Response(statistics)
+        
+    except Exception as e:
+        logger.error(f"Error fetching freight statistics: {str(e)}")
+        return Response(
+            {'error': 'Unable to fetch statistics'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

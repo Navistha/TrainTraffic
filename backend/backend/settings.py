@@ -39,11 +39,13 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'corsheaders',
+    # 'django_filters',  # TODO: Install django-filter package
     'core',
     'logs',
     'scheduler',
     'ml',
     'decision_engine',
+    'booking',
     
 ]
 

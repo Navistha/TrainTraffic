@@ -24,3 +24,4 @@ venv/
 add_missing_tracks.py
 debug_missing_segments.py
 WARP.md
+BOOKING_SYSTEM_SUMMARY.md
