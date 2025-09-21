@@ -11,7 +11,9 @@ class Command(BaseCommand):
         # -------------------------
         # Import Stations
         # -------------------------
-        with open('N:/SIH IH/traintraffic2/TrainTraffic/backend/datasets/stations.csv', newline='', encoding='utf-8') as csvfile:
+        import os
+        csv_path = os.path.join('datasets', 'stations.csv')
+        with open(csv_path, newline='', encoding='utf-8') as csvfile:
             reader = csv.DictReader(csvfile)
             for row in reader:
                 Station.objects.update_or_create(
@@ -29,7 +31,8 @@ class Command(BaseCommand):
         # -------------------------
         # Import Trains
         # -------------------------
-        with open('N:/SIH IH/traintraffic2/TrainTraffic/backend/datasets/trains.csv', newline='', encoding='utf-8') as csvfile:
+        csv_path = os.path.join('datasets', 'trains.csv')
+        with open(csv_path, newline='', encoding='utf-8') as csvfile:
             reader = csv.DictReader(csvfile)
             for row in reader:
                 Train.objects.update_or_create(
@@ -51,7 +54,8 @@ class Command(BaseCommand):
         # -------------------------
         # Import Tracks
         # -------------------------
-        with open('N:/SIH IH/traintraffic2/TrainTraffic/backend/datasets/tracks.csv', newline='', encoding='utf-8') as csvfile:
+        csv_path = os.path.join('datasets', 'tracks.csv')
+        with open(csv_path, newline='', encoding='utf-8') as csvfile:
             reader = csv.DictReader(csvfile)
             for row in reader:
                 Track.objects.update_or_create(
@@ -70,24 +74,42 @@ class Command(BaseCommand):
         # -------------------------
         # Import Railway Workers
         # -------------------------
-        with open('N:/SIH IH/traintraffic2/TrainTraffic/backend/datasets/railway_workers.csv', newline='', encoding='utf-8') as csvfile:
+        import os
+        csv_path = os.path.join('datasets', 'railway_workers.csv')
+        with open(csv_path, newline='', encoding='utf-8') as csvfile:
             reader = csv.DictReader(csvfile)
             for row in reader:
-                RailwayWorker.objects.update_or_create(
-                    worker_id=row['worker_id'],
-                    defaults={
-                        'name': row.get('name'),
-                        'designation': row.get('designation'),
-                        'department': row.get('department'),
-                        'assigned_station_id': row.get('assigned_station') if row.get('assigned_station') else None,
-                    }
-                )
+                # Map CSV fields to existing model fields
+                govt_id = (row.get('Govt_ID') or '').strip() or None
+                name = (row.get('Name') or '').strip() or None
+                role = (row.get('Role') or '').strip() or None
+                assigned_station = (row.get('Assigned_Station') or '').strip() or None
+
+                if govt_id:
+                    RailwayWorker.objects.update_or_create(
+                        govt_id=govt_id,
+                        defaults={
+                            'name': name,
+                            'designation': role,
+                            'department': 'Traffic',
+                            'assigned_station': assigned_station or None,
+                        }
+                    )
+                else:
+                    # Fallback if govt_id is missing: create a new record
+                    RailwayWorker.objects.create(
+                        name=name,
+                        designation=role,
+                        department='Traffic',
+                        assigned_station=assigned_station or None,
+                    )
         self.stdout.write(self.style.SUCCESS("Railway workers imported successfully!"))
 
         # -------------------------
         # Import Real-Time Delays
         # -------------------------
-        with open('N:/SIH IH/traintraffic2/TrainTraffic/backend/datasets/train_delay_data.csv', newline='', encoding='utf-8') as csvfile:
+        csv_path = os.path.join('datasets', 'train_delay_data.csv')
+        with open(csv_path, newline='', encoding='utf-8') as csvfile:
             reader = csv.DictReader(csvfile)
             for row in reader:
                 RealTimeDelay.objects.update_or_create(

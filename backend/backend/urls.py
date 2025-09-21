@@ -27,4 +27,5 @@ urlpatterns = [
     path("api/schedule-results/", ScheduleResultViewSet.as_view({'get': 'list', 'post': 'create'}), name="schedule-results"),
     path('decision-center/', include('decision_engine.urls')),
     path('api/booking/', include('booking.urls')),
+    path('api/core/', include('core.urls')),
 ]

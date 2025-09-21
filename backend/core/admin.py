@@ -1,5 +1,6 @@
 from django.contrib import admin
-from .models import Station, Train, Track, RailwayWorker, RealTimeDelay
+from django.contrib.auth.admin import UserAdmin
+from .models import Station, Train, Track, RailwayWorker, RealTimeDelay, Employee
 
 
 @admin.register(Station)
@@ -22,7 +23,30 @@ class TrackAdmin(admin.ModelAdmin):
 
 @admin.register(RailwayWorker)
 class RailwayWorkerAdmin(admin.ModelAdmin):
-    list_display = ("govt_id", "name", "role", "level", "assigned_station")
+    list_display = ("worker_id", "govt_id", "name", "designation", "department", "assigned_station")
+    search_fields = ("govt_id", "name", "designation", "department", "assigned_station")
+
+
+@admin.register(Employee)
+class EmployeeAdmin(UserAdmin):
+    list_display = ('work_id', 'name', 'role', 'is_active', 'is_staff')
+    list_filter = ('role', 'is_active', 'is_staff')
+    search_fields = ('work_id', 'name', 'role')
+    ordering = ('work_id',)
+    
+    fieldsets = (
+        (None, {'fields': ('work_id', 'password')}),
+        ('Personal info', {'fields': ('name', 'role')}),
+        ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
+        ('Important dates', {'fields': ('last_login',)}),
+    )
+    
+    add_fieldsets = (
+        (None, {
+            'classes': ('wide',),
+            'fields': ('work_id', 'name', 'role', 'password1', 'password2'),
+        }),
+    )
 
 
 @admin.register(RealTimeDelay)

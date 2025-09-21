@@ -93,17 +93,18 @@ class Track(models.Model):
 
 
 class RailwayWorker(models.Model):
-    govt_id = models.CharField(max_length=20, primary_key=True)  # GOVT0001 etc.
+    worker_id = models.AutoField(primary_key=True)
+    govt_id = models.CharField(max_length=20, unique=True, null=True, blank=True)
     name = models.CharField(max_length=255)
-    role = models.CharField(max_length=100)  # e.g. Control Officer
-    level = models.IntegerField()  # e.g. 1
-    assigned_station = models.CharField(max_length=10, blank=True, null=True)  # e.g. STN004
+    designation = models.CharField(max_length=100)
+    department = models.CharField(max_length=100)
+    assigned_station = models.CharField(max_length=10, blank=True, null=True)
 
     class Meta:
         db_table = "railway_workers"
 
     def __str__(self):
-        return f"{self.name} ({self.role})"
+        return f"{self.name} ({self.designation})"
 
 
 class RealTimeDelay(models.Model):
