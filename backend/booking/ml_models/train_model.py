@@ -1,169 +1,160 @@
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import classification_report, accuracy_score
 import joblib
 import os
+from sklearn.model_selection import train_test_split, RandomizedSearchCV
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.metrics import accuracy_score, f1_score, mean_squared_error, r2_score, classification_report
 
-# Set random seed for reproducibility
-np.random.seed(42)
+# Corrected path: Hardcoded absolute path
+# This path must be the full and correct location of your file.
+DATA_PATH = r"C:\Users\ASUS\TrainTraffic\backend\datasets\freight_data.csv"
+OUTPUT_DIR = r"C:\Users\ASUS\TrainTraffic\backend\ml"
 
-# Cities available for freight booking
-CITIES = ["Delhi", "Chandigarh", "Jaipur", "Lucknow", "Kanpur",
-          "Dehradun", "Varanasi", "Agra", "Gurugram"]
+CLASSIFIER_PATH = r"C:\Users\ASUS\TrainTraffic\backend\ml\delay_classifier.pkl"
+REGRESSOR_PATH = r"C:\Users\ASUS\TrainTraffic\backend\ml\delay_regressor.pkl"
+PREPROCESSOR_PATH = r"C:\Users\ASUS\TrainTraffic\backend\ml\delay_preprocessor.pkl"
 
-# Route complexity mapping
-ROUTE_COMPLEXITY = {
-    ("Delhi", "Chandigarh"): 5,
-    ("Delhi", "Jaipur"): 6,
-    ("Delhi", "Lucknow"): 8,
-    ("Delhi", "Kanpur"): 8,
-    ("Delhi", "Dehradun"): 7,
-    ("Delhi", "Varanasi"): 9,
-    ("Delhi", "Agra"): 4,
-    ("Delhi", "Gurugram"): 2,
-    ("Chandigarh", "Jaipur"): 9,
-    ("Chandigarh", "Lucknow"): 8,
-    ("Chandigarh", "Kanpur"): 10,
-    ("Chandigarh", "Dehradun"): 6,
-    ("Chandigarh", "Varanasi"): 11,
-    ("Chandigarh", "Agra"): 8,
-    ("Chandigarh", "Gurugram"): 6,
-    ("Jaipur", "Lucknow"): 9,
-    ("Jaipur", "Kanpur"): 9,
-    ("Jaipur", "Dehradun"): 10,
-    ("Jaipur", "Varanasi"): 11,
-    ("Jaipur", "Agra"): 5,
-    ("Jaipur", "Gurugram"): 8,
-    ("Lucknow", "Kanpur"): 4,
-    ("Lucknow", "Dehradun"): 8,
-    ("Lucknow", "Varanasi"): 6,
-    ("Lucknow", "Agra"): 7,
-    ("Lucknow", "Gurugram"): 9,
-    ("Kanpur", "Dehradun"): 9,
-    ("Kanpur", "Varanasi"): 5,
-    ("Kanpur", "Agra"): 7,
-    ("Kanpur", "Gurugram"): 9,
-    ("Dehradun", "Varanasi"): 10,
-    ("Dehradun", "Agra"): 8,
-    ("Dehradun", "Gurugram"): 7,
-    ("Varanasi", "Agra"): 11,
-    ("Varanasi", "Gurugram"): 12,
-    ("Agra", "Gurugram"): 5,
+print("[INFO] Loading dataset...")
+try:
+    df = pd.read_csv(DATA_PATH)
+except FileNotFoundError:
+    print(f"Error: The file was not found at the expected path: {DATA_PATH}")
+    exit()
+
+# Clean categorical columns (remove trailing spaces)
+for col in ["weather_impact", "track_status", "freight_type"]:
+    df[col] = df[col].astype(str).str.strip()
+
+feature_cols = [
+    "track_status",
+    "weather_impact",
+    "freight_type",
+    "priority_level",
+    "coach_length",
+    "max_speed_kmph"
+]
+X = df[feature_cols]
+y_class = df["delayed_flag"]
+y_reg = df["delay_minutes"]
+
+numeric_cols = ["priority_level", "coach_length", "max_speed_kmph"]
+categorical_cols = ["track_status", "weather_impact", "freight_type"]
+
+numeric_pipe = Pipeline([("imputer", SimpleImputer(strategy="median"))])
+categorical_pipe = Pipeline([
+    ("imputer", SimpleImputer(strategy="most_frequent")),
+    ("onehot", OneHotEncoder(handle_unknown="ignore", sparse_output=False))
+])
+
+preprocessor = ColumnTransformer(
+    transformers=[
+        ("num", numeric_pipe, numeric_cols),
+        ("cat", categorical_pipe, categorical_cols),
+    ],
+    remainder="drop",
+    sparse_threshold=0
+)
+
+try:
+    X_train, X_test, y_class_train, y_class_test, y_reg_train, y_reg_test = train_test_split(
+        X, y_class, y_reg, test_size=0.2, random_state=42, stratify=y_class
+    )
+except Exception as e:
+    print("[WARN] Stratified split failed:", e)
+    print("[INFO] Falling back to non-stratified split.")
+    X_train, X_test, y_class_train, y_class_test, y_reg_train, y_reg_test = train_test_split(
+        X, y_class, y_reg, test_size=0.2, random_state=42
+    )
+
+print("\n[INFO] Class distribution in training set:")
+print(y_class_train.value_counts())
+
+# Build classifier pipeline
+clf_pipe = Pipeline([
+    ("pre", preprocessor),
+    ("clf", RandomForestClassifier(n_estimators=200, random_state=42, n_jobs=-1, class_weight="balanced"))
+])
+
+# Hyperparameter grid for classifier
+clf_param_grid = {
+    "clf__n_estimators": [100, 200, 300],
+    "clf__max_depth": [None, 5, 10, 20],
+    "clf__min_samples_split": [2, 5, 10],
+    "clf__min_samples_leaf": [1, 2, 4]
 }
 
+clf_search = RandomizedSearchCV(
+    clf_pipe, clf_param_grid, n_iter=10, cv=3, scoring="f1", random_state=42, n_jobs=-1, verbose=1
+)
+print("[INFO] Tuning classifier...")
+clf_search.fit(X_train, y_class_train)
+clf_best = clf_search.best_estimator_
 
-def generate_synthetic_data(n_samples=1000):
-    """Generate synthetic freight data for training"""
-    print(f"Generating {n_samples} synthetic freight records...")
-    
-    # Generate random quantities (in tons)
-    quantities = np.random.randint(5, 200, n_samples)
-    
-    # Generate random city pairs
-    city_pairs = np.random.choice(len(CITIES), (n_samples, 2))
-    origins = [CITIES[p[0]] for p in city_pairs]
-    destinations = [CITIES[p[1]] for p in city_pairs]
-    
-    # Calculate route complexities
-    route_complexities = [
-        ROUTE_COMPLEXITY.get((o, d)) or ROUTE_COMPLEXITY.get((d, o)) or 10
-        for o, d in zip(origins, destinations)
-    ]
-    
-    # Generate delay labels based on business logic
-    # Higher quantity and higher route complexity increase delay probability
-    delay = [
-        1 if (q > 120 or r > 10 or (q > 80 and r > 7)) else 0
-        for q, r in zip(quantities, route_complexities)
-    ]
-    
-    # Create DataFrame
-    df = pd.DataFrame({
-        "origin": origins,
-        "destination": destinations,
-        "quantity": quantities,
-        "route_complexity": route_complexities,
-        "delay": delay
-    })
-    
-    return df
+# Build regressor pipeline
+reg_pipe = Pipeline([
+    ("pre", preprocessor),
+    ("reg", RandomForestRegressor(n_estimators=200, random_state=42, n_jobs=-1))
+])
 
+# Hyperparameter grid for regressor
+reg_param_grid = {
+    "reg__n_estimators": [100, 200, 300],
+    "reg__max_depth": [None, 5, 10, 20],
+    "reg__min_samples_split": [2, 5, 10],
+    "reg__min_samples_leaf": [1, 2, 4]
+}
 
-def train_delay_prediction_model():
-    """Train the freight delay prediction model"""
-    print("Starting freight delay prediction model training...")
-    
-    # Step 1: Generate synthetic data
-    df = generate_synthetic_data(1000)
-    
-    print(f"Dataset shape: {df.shape}")
-    print(f"Delay rate: {df['delay'].mean():.2%}")
-    
-    # Step 2: Prepare features and target
-    X = df[["quantity", "route_complexity"]]
-    y = df["delay"]
-    
-    print(f"Features: {list(X.columns)}")
-    
-    # Step 3: Scale features
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X)
-    
-    # Step 4: Split data
-    X_train, X_test, y_train, y_test = train_test_split(
-        X_scaled, y, test_size=0.2, random_state=42, stratify=y
-    )
-    
-    print(f"Training set size: {len(X_train)}")
-    print(f"Test set size: {len(X_test)}")
-    
-    # Step 5: Train model
-    model = LogisticRegression(random_state=42)
-    model.fit(X_train, y_train)
-    
-    # Step 6: Evaluate model
-    y_pred = model.predict(X_test)
-    accuracy = accuracy_score(y_test, y_pred)
-    
-    print(f"\nModel Performance:")
-    print(f"Accuracy: {accuracy:.3f}")
-    print(f"\nClassification Report:")
-    print(classification_report(y_test, y_pred))
-    
-    # Step 7: Save model and scaler
-    model_dir = os.path.dirname(os.path.abspath(__file__))
-    model_path = os.path.join(model_dir, "train_model.pkl")
-    
-    joblib.dump((model, scaler), model_path)
-    print(f"\nModel saved to: {model_path}")
-    
-    # Step 8: Test prediction on sample data
-    print("\n=== Testing Model Predictions ===")
-    
-    test_cases = [
-        {"quantity": 50, "route_complexity": 5, "expected": "Low delay risk"},
-        {"quantity": 150, "route_complexity": 8, "expected": "High delay risk"},
-        {"quantity": 100, "route_complexity": 12, "expected": "High delay risk"},
-        {"quantity": 30, "route_complexity": 3, "expected": "Low delay risk"},
-    ]
-    
-    for case in test_cases:
-        features = scaler.transform([[case["quantity"], case["route_complexity"]]])
-        prediction = model.predict(features)[0]
-        probability = model.predict_proba(features)[0][1]
-        
-        print(f"Quantity: {case['quantity']} tons, Complexity: {case['route_complexity']}")
-        print(f"Prediction: {'Delay' if prediction else 'No Delay'} "
-              f"(Probability: {probability:.3f}) - {case['expected']}")
-        print("-" * 50)
-    
-    return model, scaler
+reg_search = RandomizedSearchCV(
+    reg_pipe, reg_param_grid, n_iter=10, cv=3, scoring="neg_root_mean_squared_error", random_state=42, n_jobs=-1, verbose=1
+)
+print("[INFO] Tuning regressor...")
+reg_search.fit(X_train, y_reg_train)
+reg_best = reg_search.best_estimator_
 
+# Evaluate classifier
+y_class_pred = clf_best.predict(X_test)
+acc = accuracy_score(y_class_test, y_class_pred)
+f1 = f1_score(y_class_test, y_class_pred, zero_division=0)
+print("\n=== Classifier ===")
+print(f"Accuracy: {acc:.4f}")
+print(f"F1 Score: {f1:.4f}")
+print(classification_report(y_class_test, y_class_pred))
 
-if __name__ == "__main__":
-    print("=== Freight Delay Prediction Model Training ===")
-    model, scaler = train_delay_prediction_model()
-    print("Training completed successfully!")
+# Evaluate regressor
+y_reg_pred = reg_best.predict(X_test)
+mse = mean_squared_error(y_reg_test, y_reg_pred)
+rmse = np.sqrt(mse)
+r2 = r2_score(y_reg_test, y_reg_pred)
+print("\n=== Regressor ===")
+print(f"RMSE: {rmse:.4f}")
+print(f"R²: {r2:.4f}")
+
+# Save models and fitted preprocessor
+# Note: The `os` module is still needed for this part.
+if not os.path.exists(OUTPUT_DIR):
+    os.makedirs(OUTPUT_DIR)
+
+joblib.dump(clf_best.named_steps["clf"], CLASSIFIER_PATH)
+joblib.dump(reg_best.named_steps["reg"], REGRESSOR_PATH)
+# Save the fitted preprocessor from the classifier pipeline
+joblib.dump(clf_best.named_steps["pre"], PREPROCESSOR_PATH)
+
+print("\n[INFO] Saved models:")
+print(f" - Classifier: {CLASSIFIER_PATH}")
+print(f" - Regressor: {REGRESSOR_PATH}")
+print(f" - Preprocessor: {PREPROCESSOR_PATH}")
+
+# Feature importances
+print("\n[INFO] Feature importances (Classifier):")
+importances = clf_best.named_steps["clf"].feature_importances_
+feature_names = (
+    numeric_cols +
+    list(clf_best.named_steps["pre"].transformers_[1][1].named_steps["onehot"].get_feature_names_out(categorical_cols))
+)
+for name, imp in sorted(zip(feature_names, importances), key=lambda x: -x[1]):
+    print(f"{name}: {imp:.3f}")
