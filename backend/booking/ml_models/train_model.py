@@ -12,12 +12,27 @@ from sklearn.metrics import accuracy_score, f1_score, mean_squared_error, r2_sco
 
 # Corrected path: Hardcoded absolute path
 # This path must be the full and correct location of your file.
-DATA_PATH = r"C:\Users\ASUS\TrainTraffic\backend\datasets\freight_data.csv"
-OUTPUT_DIR = r"C:\Users\ASUS\TrainTraffic\backend\ml"
 
-CLASSIFIER_PATH = r"C:\Users\ASUS\TrainTraffic\backend\ml\delay_classifier.pkl"
-REGRESSOR_PATH = r"C:\Users\ASUS\TrainTraffic\backend\ml\delay_regressor.pkl"
-PREPROCESSOR_PATH = r"C:\Users\ASUS\TrainTraffic\backend\ml\delay_preprocessor.pkl"
+
+import os
+
+# Base = backend folder (go 2 levels up from booking/ml_models/)
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+
+# Dataset
+DATA_PATH = os.path.join(BASE_DIR, "datasets", "freight_data.csv")
+
+# Output
+OUTPUT_DIR = os.path.join(BASE_DIR, "ml")
+
+# Models
+CLASSIFIER_PATH = os.path.join(BASE_DIR, "booking", "ml_models", "delay_classifier.pkl")
+REGRESSOR_PATH = os.path.join(BASE_DIR, "booking", "ml_models", "delay_regressor.pkl")
+PREPROCESSOR_PATH = os.path.join(BASE_DIR, "booking", "ml_models", "delay_preprocessor.pkl")
+
+print("[DEBUG] DATA_PATH =", DATA_PATH)
+
+
 
 print("[INFO] Loading dataset...")
 try:
