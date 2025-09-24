@@ -1,13 +1,15 @@
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 
-
 class EmployeeManager(BaseUserManager):
     def create_user(self, work_id, password=None, **extra_fields):
         if not work_id:
             raise ValueError("Work ID is required")
         user = self.model(work_id=work_id, **extra_fields)
-        user.set_password(password)
+        if password:
+            user.set_password(password)
+        else:
+            user.set_unusable_password()
         user.save(using=self._db)
         return user
 
@@ -19,15 +21,10 @@ class EmployeeManager(BaseUserManager):
 
 class Employee(AbstractBaseUser, PermissionsMixin):
     ROLE_CHOICES = [
-        ("control_officer", "Control Officer"),
-        ("divisional_traffic_manager", "Divisional Traffic Manager"),
         ("station_master", "Station Master"),
-        ("yard_master", "Yard Master"),
-        ("signal_inspector", "Signal Inspector"),
-        ("loco_pilot", "Loco Pilot"),
-        ("assistant_loco_pilot", "Assistant Loco Pilot"),
-        ("gatekeeper", "Gatekeeper"),
-        ("pointsman", "Pointsman"),
+        ("section_controller", "Section Controller"),
+        ("freight_operator", "Freight Operator"),
+        ("track_manager", "Track Manager"),
     ]
 
     work_id = models.CharField(max_length=50, unique=True)
@@ -43,7 +40,6 @@ class Employee(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return f"{self.name} ({self.role})"
-
 
 class Station(models.Model):
     id = models.CharField(primary_key=True)
