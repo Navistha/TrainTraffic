@@ -5,8 +5,8 @@ import { Label } from './ui/label.js';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs.js';
 import { Card, CardContent, CardHeader } from './ui/card.js';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select.js';
-import { RefreshCw } from 'lucide-react';
 import railwayLogo from '../assets/de6da6a664b190e144e4d86f4481b866fee10e67.png';
+import Captcha from '../components/ui/genCaptcha.js';
 
 interface LoginPageProps {
   onLogin: (role: string) => void;
@@ -16,20 +16,15 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('');
-  const [captcha, setCaptcha] = useState('');
-  const [captchaCode] = useState('AB3K7');
+  const [captchaInput, setCaptchaInput] = useState('');
+  const [generatedCaptcha, setGeneratedCaptcha] = useState('');
 
   const handleLogin = () => {
-    if (email && password && role && captcha === captchaCode) {
+    if (email && password && role && captchaInput === generatedCaptcha) {
       onLogin(role);
     } else {
       alert('Please fill all fields correctly');
     }
-  };
-
-  const generateNewCaptcha = () => {
-    // In a real app, this would generate a new captcha
-    window.location.reload();
   };
 
   return (
@@ -94,25 +89,11 @@ export function LoginPage({ onLogin }: LoginPageProps) {
               
               <div className="space-y-2">
                 <Label htmlFor="captcha">Enter CAPTCHA</Label>
-                <div className="flex space-x-2">
-                  <div className="bg-gray-100 border rounded p-3 flex items-center justify-center min-w-[100px]">
-                    <span className="font-mono text-lg tracking-wider select-none">
-                      {captchaCode}
-                    </span>
-                  </div>
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    size="sm"
-                    onClick={generateNewCaptcha}
-                  >
-                    <RefreshCw className="w-4 h-4" />
-                  </Button>
-                </div>
+                <Captcha onChange={(text: string) => setGeneratedCaptcha(text)} />
                 <Input
                   id="captcha"
-                  value={captcha}
-                  onChange={(e) => setCaptcha(e.target.value)}
+                  value={captchaInput}
+                  onChange={(e) => setCaptchaInput(e.target.value)}
                   placeholder="Enter CAPTCHA"
                 />
               </div>
