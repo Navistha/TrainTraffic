@@ -1,3 +1,4 @@
+from django.conf import settings
 from rest_framework import viewsets
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -16,9 +17,9 @@ class ScheduleResultViewSet(viewsets.ModelViewSet):
 def run_scheduler(request):
     """
     Run optimization and save schedule results into DB.
-    Expected body: { "data_root": "...", "limit_trains": 10, "time_limit_s": 20 }
+    Expected body: {"limit_trains": 10, "time_limit_s": 20 }
     """
-    data_root = request.data.get("data_root", os.path.join("backend", "datasets"))
+    data_root = request.data.get("data_root", os.path.join(settings.BASE_DIR, "datasets"))
     limit_trains = request.data.get("limit_trains")
     time_limit_s = int(request.data.get("time_limit_s", 20))
 
