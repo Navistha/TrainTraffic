@@ -1,17 +1,26 @@
 import { useState } from 'react';
-import { Button } from '../ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { Badge } from '../ui/badge';
-import { Checkbox } from '../ui/checkbox';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-import { Progress } from '../ui/progress';
-import { Alert, AlertDescription } from '../ui/alert';
+import { Button } from '../ui/button.js';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card.js';
+import { Badge } from '../ui/badge.js';
+import { Checkbox } from '../ui/checkbox.js';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs.js';
+import { Progress } from '../ui/progress.js';
+import { Alert, AlertDescription } from '../ui/alert.js';
 import { Map, CheckSquare, AlertTriangle, Camera, Calendar, MapPin, Wrench, Clock, Target, Zap } from 'lucide-react';
 import railwayLogo from 'figma:asset/de6da6a664b190e144e4d86f4481b866fee10e67.png';
 
 export function TrackManagerDashboard() {
-  const [selectedSection, setSelectedSection] = useState(null);
-  const [taskProgress, setTaskProgress] = useState({});
+  type TrackSection = {
+    id: string;
+    status: string;
+    lastInspection: string;
+    nextDue: string;
+    healthScore: number;
+    defects: number;
+    speedRestriction: string | null;
+  };
+  const [selectedSection, setSelectedSection] = useState<TrackSection | null>(null);
+  const [taskProgress, setTaskProgress] = useState<Record<string, boolean>>({});
   const [photoCount, setPhotoCount] = useState(0);
 
   const trackSections = [
@@ -142,14 +151,14 @@ export function TrackManagerDashboard() {
     }
   ];
 
-  const toggleChecklistItem = (taskId, itemIndex) => {
+  const toggleChecklistItem = (taskId: number, itemIndex: number) => {
     setTaskProgress(prev => ({
       ...prev,
       [`${taskId}-${itemIndex}`]: !prev[`${taskId}-${itemIndex}`]
     }));
   };
 
-  const getTaskCompletion = (taskId, checklistLength) => {
+  const getTaskCompletion = (taskId: number, checklistLength: number): number => {
     let completed = 0;
     for (let i = 0; i < checklistLength; i++) {
       if (taskProgress[`${taskId}-${i}`]) completed++;
@@ -157,20 +166,20 @@ export function TrackManagerDashboard() {
     return Math.round((completed / checklistLength) * 100);
   };
 
-  const reportIncident = (type) => {
+  const reportIncident = (type: string) => {
     alert(`${type} reported successfully!\n\nGPS Location: Automatically captured\nPhotos: ${photoCount} attached\nTime: ${new Date().toLocaleTimeString()}\n\nAlert sent to:\n- Control Office\n- Senior PWI\n- Engineering Department`);
   };
 
-  const takePhoto = () => {
+  const takePhoto = (): void => {
     setPhotoCount(prev => prev + 1);
     alert(`Photo ${photoCount + 1} captured and attached to current task/report`);
   };
 
-  const requestBlock = (section, duration) => {
+  const requestBlock = (section: string, duration: string): void => {
     alert(`Engineering Block Request Submitted:\n\nSection: ${section}\nDuration: ${duration}\nJustification: Critical repair work\nTraffic Impact: Minimal during requested hours\n\nRequest sent to Section Controller for approval.`);
   };
 
-  const markGPS = () => {
+  const markGPS = (): void => {
     alert(`GPS Location Marked:\nCoordinates: 28.6139° N, 77.2090° E\nKM: 52.5\nTime: ${new Date().toLocaleTimeString()}\n\nLocation saved for incident/inspection record.`);
   };
 

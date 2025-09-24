@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Card, CardContent, CardHeader } from './ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Button } from './ui/button.js';
+import { Input } from './ui/input.js';
+import { Label } from './ui/label.js';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs.js';
+import { Card, CardContent, CardHeader } from './ui/card.js';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select.js';
 import { RefreshCw } from 'lucide-react';
-import railwayLogo from 'figma:asset/de6da6a664b190e144e4d86f4481b866fee10e67.png';
+import railwayLogo from '../assets/de6da6a664b190e144e4d86f4481b866fee10e67.png';
 
 interface LoginPageProps {
   onLogin: (role: string) => void;

@@ -1,17 +1,42 @@
 import { useState } from 'react';
-import { Button } from '../ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { Badge } from '../ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-import { Progress } from '../ui/progress';
-import { Alert, AlertDescription } from '../ui/alert';
+import { Button } from '../ui/button.js';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card.js';
+import { Badge } from '../ui/badge.js';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs.js';
+import { Progress } from '../ui/progress.js';
+import { Alert, AlertDescription } from '../ui/alert.js';
 import { Truck, Package, MapPin, Calendar, Clock, TrendingUp, AlertTriangle, Target, Zap } from 'lucide-react';
 import railwayLogo from 'figma:asset/de6da6a664b190e144e4d86f4481b866fee10e67.png';
 
+type Indent = {
+  id: string;
+  commodity: string;
+  quantity: number;
+  origin: string;
+  destination: string;
+  priority: string;
+  days: number;
+  requester: string;
+  wagonType: string;
+  wagonRequired: number;
+  urgencyScore: number;
+  penaltyRisk: string;
+};
+
+type WagonSource = {
+  location: string;
+  type: string;
+  count: number;
+  capacity: number;
+  distance: string;
+  emptyRunCost: string;
+  availability: string;
+  matchScore: number;
+};
+
 export function FreightOperatorDashboard() {
-  const [selectedIndent, setSelectedIndent] = useState(null);
-  const [selectedWagonSource, setSelectedWagonSource] = useState(null);
+  const [selectedIndent, setSelectedIndent] = useState<Indent | null>(null);
+  const [selectedWagonSource, setSelectedWagonSource] = useState<WagonSource | null>(null);
 
   const kpis = [
     { label: 'Total Wagons', value: 2847, unit: '', trend: '+45', color: 'text-primary' },
@@ -168,17 +193,17 @@ export function FreightOperatorDashboard() {
     },
   ];
 
-  const smartMatches = selectedIndent ? availableWagons
-    .filter(wagon => wagon.type === selectedIndent.wagonType || 
+  const smartMatches: WagonSource[] = selectedIndent ? availableWagons
+    .filter((wagon: WagonSource) => wagon.type === selectedIndent.wagonType || 
                    (selectedIndent.wagonType === 'BOXN' && ['BOBR', 'BCNA'].includes(wagon.type)))
-    .sort((a, b) => b.matchScore - a.matchScore)
+    .sort((a: WagonSource, b: WagonSource) => b.matchScore - a.matchScore)
     .slice(0, 3) : [];
 
-  const handleSmartMatch = (indent, wagons) => {
+  const handleSmartMatch = (indent: Indent, wagons: WagonSource) => {
     alert(`SMART ALLOTMENT CREATED\n\nIndent: ${indent.id} - ${indent.commodity}\nWagons: ${wagons.count} x ${wagons.type} from ${wagons.location}\nEmpty Run Cost: ${wagons.emptyRunCost}\nMatch Score: ${wagons.matchScore}%\n\nSupply order dispatched to Section Controller.`);
   };
 
-  const handleManualAllot = (indent, wagons) => {
+  const handleManualAllot = (indent: Indent, wagons: WagonSource) => {
     alert(`Manual allotment created for ${indent.commodity} using ${wagons.count} wagons from ${wagons.location}`);
   };
 
@@ -428,7 +453,7 @@ export function FreightOperatorDashboard() {
                             <Button 
                               size="sm"
                               variant="outline"
-                              onClick={(e) => {
+                              onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                                 e.stopPropagation();
                                 handleManualAllot(selectedIndent, wagon);
                               }}

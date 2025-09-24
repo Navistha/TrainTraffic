@@ -1,16 +1,25 @@
 import { useState } from 'react';
-import { Button } from '../ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { Badge } from '../ui/badge';
-import { Progress } from '../ui/progress';
+import { Button } from '../ui/button.js';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card.js';
+import { Badge } from '../ui/badge.js';
+import { Progress } from '../ui/progress.js';
 import { AlertTriangle, CheckCircle, Clock, TrendingUp, Users, MapPin, Zap, Activity, Target } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-import { Alert, AlertDescription } from '../ui/alert';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs.js';
+import { Alert, AlertDescription } from '../ui/alert.js';
 import railwayLogo from 'figma:asset/de6da6a664b190e144e4d86f4481b866fee10e67.png';
 
 export function SectionControllerDashboard() {
-  const [selectedConflict, setSelectedConflict] = useState(null);
-  const [draggedTrain, setDraggedTrain] = useState(null);
+  type Conflict = {
+    id: string;
+    location: string;
+    trains: string[];
+    severity: string;
+    timeToConflict: string;
+    description: string;
+  };
+
+  const [selectedConflict, setSelectedConflict] = useState<Conflict | null>(null);
+  const [draggedTrain, setDraggedTrain] = useState<typeof trainPaths[number] | null>(null);
   
   const kpis = [
     { label: 'Section Punctuality', value: 94, unit: '%', trend: '+2%', color: 'text-green-600' },
@@ -138,20 +147,33 @@ export function SectionControllerDashboard() {
     { time: '14:15', action: 'Diverted Goods via alternate route', result: 'Traffic optimized', operator: 'System' },
   ];
 
-  const executeRecommendation = (rec) => {
+  type AIRecommendation = {
+    id: number;
+    type: string;
+    title: string;
+    description: string;
+    impact: string;
+    confidence: number;
+    action: string;
+    timeToDecide: number;
+    affectedTrains: string[];
+    estimatedSavings: string;
+  };
+
+  const executeRecommendation = (rec: AIRecommendation) => {
     alert(`Executing: ${rec.title}\nAction: ${rec.action}\nEstimated Impact: ${rec.impact}`);
     // In real app, this would dispatch the actual control orders
   };
 
-  const simulateRecommendation = (rec) => {
+  const simulateRecommendation = (rec: AIRecommendation) => {
     alert(`Simulation Results:\n- Impact: ${rec.impact}\n- Confidence: ${rec.confidence}%\n- Affected Trains: ${rec.affectedTrains.join(', ')}\n- Savings: ${rec.estimatedSavings}`);
   };
 
-  const handleDragStart = (train) => {
+  const handleDragStart = (train: typeof trainPaths[number]) => {
     setDraggedTrain(train);
   };
 
-  const handlePriorityChange = (trainId, newPriority) => {
+  const handlePriorityChange = (trainId: string, newPriority: string) => {
     alert(`Priority changed for ${trainId} to ${newPriority}. Re-calculating optimal paths...`);
   };
 
