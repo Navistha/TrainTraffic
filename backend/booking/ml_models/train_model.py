@@ -1,175 +1,173 @@
-import pandas as pd
-import numpy as np
-import joblib
 import os
-from sklearn.model_selection import train_test_split, RandomizedSearchCV
-from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import OneHotEncoder
+import time
+import pickle
+import pandas as pd
+import random
+from datetime import datetime, timedelta
+from multiprocessing import Process
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
-from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-from sklearn.metrics import accuracy_score, f1_score, mean_squared_error, r2_score, classification_report
+from sklearn.linear_model import LinearRegression, LogisticRegression
 
-# Corrected path: Hardcoded absolute path
-# This path must be the full and correct location of your file.
-
-
-import os
-
-# Base = backend folder (go 2 levels up from booking/ml_models/)
+# ===================== PATHS =====================
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-
-# Dataset
 DATA_PATH = os.path.join(BASE_DIR, "datasets", "freight_data.csv")
-
-# Output
-OUTPUT_DIR = os.path.join(BASE_DIR, "ml")
-
-# Models
 CLASSIFIER_PATH = os.path.join(BASE_DIR, "booking", "ml_models", "delay_classifier.pkl")
 REGRESSOR_PATH = os.path.join(BASE_DIR, "booking", "ml_models", "delay_regressor.pkl")
 PREPROCESSOR_PATH = os.path.join(BASE_DIR, "booking", "ml_models", "delay_preprocessor.pkl")
 
-print("[DEBUG] DATA_PATH =", DATA_PATH)
+# ===================== DATA SETTINGS =====================
+TRACK_STATUS_OPTIONS = ["free", "occupied", "maintenance"]
+WEATHER_OPTIONS = ["clear", "rain", "storm", "fog"]
+FREIGHT_TYPES = ["coal", "food", "electronics", "oil", "automobile"]
+STATIONS = ["Delhi", "Kanpur", "Prayagraj", "Itarsi", "Mughalsarai"]
+
+NUM_ROWS = 70
+UPDATE_INTERVAL = 10
 
 
+# ===================== DATA GENERATOR =====================
+def generate_freight_data():
+    os.makedirs(os.path.dirname(DATA_PATH), exist_ok=True)
 
-print("[INFO] Loading dataset...")
-try:
+    records = []
+    for i in range(1, NUM_ROWS + 1):
+        freight_id = f"FRT{i:03d}"
+        arrival_time = datetime.now() + timedelta(minutes=random.randint(0, 120))
+        departure_time = arrival_time + timedelta(minutes=random.randint(5, 30))
+
+        record = {
+            "freight_id": freight_id,
+            "current_station_id": random.choice(STATIONS),
+            "actual_arrival_time": arrival_time.strftime("%Y-%m-%d %H:%M:%S"),
+            "actual_departure_time": departure_time.strftime("%Y-%m-%d %H:%M:%S"),
+            "delay_minutes": random.randint(0, 120),
+            "track_status": random.choice(TRACK_STATUS_OPTIONS),
+            "weather_impact": random.choice(WEATHER_OPTIONS),
+            "freight_type": random.choice(FREIGHT_TYPES),
+            "priority_level": random.randint(1, 5),
+            "coach_length": random.randint(20, 200),
+            "max_speed_kmph": random.randint(40, 120),
+            "delayed_flag": random.choice([0, 1]),
+        }
+        records.append(record)
+
+    df = pd.DataFrame(records)
+    df.to_csv(DATA_PATH, index=False)
+    print(f"[INFO] Initial freight dataset created with {NUM_ROWS} entries.")
+
+    while True:
+        df["track_status"] = [random.choice(TRACK_STATUS_OPTIONS) for _ in range(NUM_ROWS)]
+        df["weather_impact"] = [random.choice(WEATHER_OPTIONS) for _ in range(NUM_ROWS)]
+        df["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        df.to_csv(DATA_PATH, index=False)
+        print(f"[INFO] Dataset updated at {datetime.now().strftime('%H:%M:%S')}")
+        time.sleep(UPDATE_INTERVAL)
+
+
+# ===================== MODEL TRAINING =====================
+def train_models():
+    if not os.path.exists(DATA_PATH):
+        raise FileNotFoundError("Dataset not found. The data generator should be running.")
+
     df = pd.read_csv(DATA_PATH)
-except FileNotFoundError:
-    print(f"Error: The file was not found at the expected path: {DATA_PATH}")
-    exit()
 
-# Clean categorical columns (remove trailing spaces)
-for col in ["weather_impact", "track_status", "freight_type"]:
-    df[col] = df[col].astype(str).str.strip()
+    X = df.drop(columns=["delay_minutes", "delayed_flag", "freight_id", "actual_arrival_time", "actual_departure_time"])
+    y_reg = df["delay_minutes"]
+    y_clf = df["delayed_flag"]
 
-feature_cols = [
-    "track_status",
-    "weather_impact",
-    "freight_type",
-    "priority_level",
-    "coach_length",
-    "max_speed_kmph"
-]
-X = df[feature_cols]
-y_class = df["delayed_flag"]
-y_reg = df["delay_minutes"]
+    categorical_cols = ["current_station_id", "track_status", "weather_impact", "freight_type"]
+    numeric_cols = ["priority_level", "coach_length", "max_speed_kmph"]
 
-numeric_cols = ["priority_level", "coach_length", "max_speed_kmph"]
-categorical_cols = ["track_status", "weather_impact", "freight_type"]
-
-numeric_pipe = Pipeline([("imputer", SimpleImputer(strategy="median"))])
-categorical_pipe = Pipeline([
-    ("imputer", SimpleImputer(strategy="most_frequent")),
-    ("onehot", OneHotEncoder(handle_unknown="ignore", sparse_output=False))
-])
-
-preprocessor = ColumnTransformer(
-    transformers=[
-        ("num", numeric_pipe, numeric_cols),
-        ("cat", categorical_pipe, categorical_cols),
-    ],
-    remainder="drop",
-    sparse_threshold=0
-)
-
-try:
-    X_train, X_test, y_class_train, y_class_test, y_reg_train, y_reg_test = train_test_split(
-        X, y_class, y_reg, test_size=0.2, random_state=42, stratify=y_class
-    )
-except Exception as e:
-    print("[WARN] Stratified split failed:", e)
-    print("[INFO] Falling back to non-stratified split.")
-    X_train, X_test, y_class_train, y_class_test, y_reg_train, y_reg_test = train_test_split(
-        X, y_class, y_reg, test_size=0.2, random_state=42
+    preprocessor = ColumnTransformer(
+        transformers=[
+            ("cat", OneHotEncoder(handle_unknown="ignore"), categorical_cols),
+            ("num", StandardScaler(), numeric_cols),
+        ]
     )
 
-print("\n[INFO] Class distribution in training set:")
-print(y_class_train.value_counts())
+    regressor = Pipeline([("preprocessor", preprocessor), ("regressor", LinearRegression())])
+    classifier = Pipeline([("preprocessor", preprocessor), ("classifier", LogisticRegression(max_iter=1000))])
 
-# Build classifier pipeline
-clf_pipe = Pipeline([
-    ("pre", preprocessor),
-    ("clf", RandomForestClassifier(n_estimators=200, random_state=42, n_jobs=-1, class_weight="balanced"))
-])
+    X_train, _, y_reg_train, _ = train_test_split(X, y_reg, test_size=0.2, random_state=42)
+    _, _, y_clf_train, _ = train_test_split(X, y_clf, test_size=0.2, random_state=42)
 
-# Hyperparameter grid for classifier
-clf_param_grid = {
-    "clf__n_estimators": [100, 200, 300],
-    "clf__max_depth": [None, 5, 10, 20],
-    "clf__min_samples_split": [2, 5, 10],
-    "clf__min_samples_leaf": [1, 2, 4]
-}
+    regressor.fit(X_train, y_reg_train)
+    classifier.fit(X_train, y_clf_train)
 
-clf_search = RandomizedSearchCV(
-    clf_pipe, clf_param_grid, n_iter=10, cv=3, scoring="f1", random_state=42, n_jobs=-1, verbose=1
-)
-print("[INFO] Tuning classifier...")
-clf_search.fit(X_train, y_class_train)
-clf_best = clf_search.best_estimator_
+    os.makedirs(os.path.dirname(REGRESSOR_PATH), exist_ok=True)
+    with open(REGRESSOR_PATH, "wb") as f:
+        pickle.dump(regressor, f)
+    with open(CLASSIFIER_PATH, "wb") as f:
+        pickle.dump(classifier, f)
+    with open(PREPROCESSOR_PATH, "wb") as f:
+        pickle.dump(preprocessor, f)
 
-# Build regressor pipeline
-reg_pipe = Pipeline([
-    ("pre", preprocessor),
-    ("reg", RandomForestRegressor(n_estimators=200, random_state=42, n_jobs=-1))
-])
+    print("[INFO] Models trained and saved.")
 
-# Hyperparameter grid for regressor
-reg_param_grid = {
-    "reg__n_estimators": [100, 200, 300],
-    "reg__max_depth": [None, 5, 10, 20],
-    "reg__min_samples_split": [2, 5, 10],
-    "reg__min_samples_leaf": [1, 2, 4]
-}
 
-reg_search = RandomizedSearchCV(
-    reg_pipe, reg_param_grid, n_iter=10, cv=3, scoring="neg_root_mean_squared_error", random_state=42, n_jobs=-1, verbose=1
-)
-print("[INFO] Tuning regressor...")
-reg_search.fit(X_train, y_reg_train)
-reg_best = reg_search.best_estimator_
+# ===================== PREDICTION =====================
+def predict_freight_delay(freight_id: str):
+    if not os.path.exists(DATA_PATH):
+        return {"error": "Dataset not found."}
+    
+    df = pd.read_csv(DATA_PATH)
+    
+    if freight_id not in df["freight_id"].values:
+        return {"error": f"Freight ID {freight_id} not found."}
 
-# Evaluate classifier
-y_class_pred = clf_best.predict(X_test)
-acc = accuracy_score(y_class_test, y_class_pred)
-f1 = f1_score(y_class_test, y_class_pred, zero_division=0)
-print("\n=== Classifier ===")
-print(f"Accuracy: {acc:.4f}")
-print(f"F1 Score: {f1:.4f}")
-print(classification_report(y_class_test, y_class_pred))
+    freight = df[df["freight_id"] == freight_id]
+    X = freight.drop(columns=["delay_minutes", "delayed_flag", "freight_id", "actual_arrival_time", "actual_departure_time"])
 
-# Evaluate regressor
-y_reg_pred = reg_best.predict(X_test)
-mse = mean_squared_error(y_reg_test, y_reg_pred)
-rmse = np.sqrt(mse)
-r2 = r2_score(y_reg_test, y_reg_pred)
-print("\n=== Regressor ===")
-print(f"RMSE: {rmse:.4f}")
-print(f"R²: {r2:.4f}")
+    # Load models
+    with open(REGRESSOR_PATH, "rb") as f:
+        regressor = pickle.load(f)
+    with open(CLASSIFIER_PATH, "rb") as f:
+        classifier = pickle.load(f)
 
-# Save models and fitted preprocessor
-# Note: The `os` module is still needed for this part.
-if not os.path.exists(OUTPUT_DIR):
-    os.makedirs(OUTPUT_DIR)
+    delay_pred = regressor.predict(X)[0]
+    flag_pred = classifier.predict(X)[0]
 
-joblib.dump(clf_best.named_steps["clf"], CLASSIFIER_PATH)
-joblib.dump(reg_best.named_steps["reg"], REGRESSOR_PATH)
-# Save the fitted preprocessor from the classifier pipeline
-joblib.dump(clf_best.named_steps["pre"], PREPROCESSOR_PATH)
+    # Logical fix: zero out delay if flagged as not delayed
+    if flag_pred == 0:
+        delay_pred = 0
 
-print("\n[INFO] Saved models:")
-print(f" - Classifier: {CLASSIFIER_PATH}")
-print(f" - Regressor: {REGRESSOR_PATH}")
-print(f" - Preprocessor: {PREPROCESSOR_PATH}")
+    return {
+        "freight_id": freight_id,
+        "predicted_delay_minutes": round(float(delay_pred), 2),
+        "predicted_delayed_flag": int(flag_pred),
+    }
 
-# Feature importances
-print("\n[INFO] Feature importances (Classifier):")
-importances = clf_best.named_steps["clf"].feature_importances_
-feature_names = (
-    numeric_cols +
-    list(clf_best.named_steps["pre"].transformers_[1][1].named_steps["onehot"].get_feature_names_out(categorical_cols))
-)
-for name, imp in sorted(zip(feature_names, importances), key=lambda x: -x[1]):
-    print(f"{name}: {imp:.3f}")
+
+
+# ===================== LIVE PREDICTIONS =====================
+def live_status(freight_id: str, interval=10):
+    print(f"[INFO] Starting live updates for {freight_id}...\n")
+    try:
+        while True:
+            result = predict_freight_delay(freight_id)
+            print(f"[LIVE] {datetime.now().strftime('%H:%M:%S')} → {result}")
+            time.sleep(interval)
+    except KeyboardInterrupt:
+        print("\n[INFO] Stopped live updates.")
+
+
+# ===================== MAIN =====================
+if __name__ == "__main__":
+    # Start dataset generator in background
+    p = Process(target=generate_freight_data)
+    p.daemon = True
+    p.start()
+    print("[INFO] Freight dataset generator started in background.")
+
+    # Wait a few seconds to ensure initial dataset exists
+    time.sleep(3)
+
+    # Train models
+    train_models()
+
+    # Ask user for Freight ID to track
+    freight_id = input("Enter the Freight ID to track (e.g., FRT005): ").strip().upper()
+    live_status(freight_id, interval=10)
