@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { LoadingPage } from './components/LoadingPage';
-import { LoginPage } from './components/LoginPage';
-import { StationMasterDashboard } from './components/dashboards/StationMasterDashboard';
-import { SectionControllerDashboard } from './components/dashboards/SectionControllerDashboard';
-import { FreightOperatorDashboard } from './components/dashboards/FreightOperatorDashboard';
-import { TrackManagerDashboard } from './components/dashboards/TrackManagerDashboard';
+import { LoadingPage } from './components/LoadingPage.js';
+import { LoginPage } from './components/LoginPage.js';
+import { StationMasterDashboard } from './components/dashboards/StationMasterDashboard.js';
+import { SectionControllerDashboard } from './components/dashboards/SectionControllerDashboard.js';
+import { FreightOperatorDashboard } from './components/dashboards/FreightOperatorDashboard.js';
+import { TrackManagerDashboard } from './components/dashboards/TrackManagerDashboard.js';
 
 type AppState = 'loading' | 'login' | 'dashboard';
 type UserRole = 'station-master' | 'section-controller' | 'freight-operator' | 'track-manager' | null;

@@ -1,15 +1,15 @@
 import { useState } from 'react';
-import { Button } from '../ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { Badge } from '../ui/badge';
+import { Button } from '../ui/button.js';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card.js';
+import { Badge } from '../ui/badge.js';
 import { Clock, Train, MapPin, AlertTriangle, Phone, FileText, CheckCircle } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-import { Alert, AlertDescription } from '../ui/alert';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs.js';
+import { Alert, AlertDescription } from '../ui/alert.js';
 import railwayLogo from 'figma:asset/de6da6a664b190e144e4d86f4481b866fee10e67.png';
 
 export function StationMasterDashboard() {
-  const [selectedTrain, setSelectedTrain] = useState(null);
-  const [routeSet, setRouteSet] = useState({});
+  const [selectedTrain, setSelectedTrain] = useState<typeof upcomingTrains[number] | null>(null);
+  const [routeSet, setRouteSet] = useState<Record<string, string>>({});
   const [controlOrders, setControlOrders] = useState([
     {
       id: 1,
@@ -81,28 +81,27 @@ export function StationMasterDashboard() {
     { id: 'L2', name: 'Loop Line 2', status: 'maintenance', train: null, signal: 'red' },
   ];
 
-  const acknowledgeOrder = (orderId) => {
+  const acknowledgeOrder = (orderId: number) => {
     setControlOrders(prev => prev.map(order => 
       order.id === orderId ? { ...order, acknowledged: true } : order
     ));
     alert('Order acknowledged and repeated back to Control');
   };
 
-  const setRoute = (trainId, platform) => {
+  const setRoute = (trainId: string, platform: string) => {
     setRouteSet(prev => ({ ...prev, [trainId]: platform }));
-    // Update track layout to show route is set
     alert(`Route set for ${trainId} to ${platform} - Signals aligned automatically`);
   };
 
-  const reportArrival = (train) => {
+  const reportArrival = (train: typeof upcomingTrains[number]) => {
     alert(`Arrival reported to Control: ${train.id} arrived at ${new Date().toLocaleTimeString()}`);
   };
 
-  const reportDeparture = (train) => {
+  const reportDeparture = (train: typeof upcomingTrains[number]) => {
     alert(`Departure reported to Control: ${train.id} departed at ${new Date().toLocaleTimeString()}`);
   };
 
-  const grantLineClear = (train) => {
+  const grantLineClear = (train: typeof upcomingTrains[number]) => {
     alert(`Line Clear granted to next station for ${train.id}`);
   };
 
@@ -213,7 +212,7 @@ export function StationMasterDashboard() {
                         className={`p-4 border-2 rounded-lg text-center transition-all relative ${
                           track.status === 'occupied' ? 'border-red-500 bg-red-50' :
                           track.status === 'maintenance' ? 'border-yellow-500 bg-yellow-50' :
-                          routeSet[selectedTrain?.id] === track.name ? 'border-blue-500 bg-blue-50' :
+                          selectedTrain && routeSet[selectedTrain.id] === track.name ? 'border-blue-500 bg-blue-50' :
                           'border-green-500 bg-green-50'
                         }`}
                       >
@@ -225,7 +224,7 @@ export function StationMasterDashboard() {
                         }`}>
                           {track.status === 'occupied' ? `Train ${track.train}` :
                            track.status === 'maintenance' ? 'Under Maintenance' :
-                           routeSet[selectedTrain?.id] === track.name ? 'Route Set' :
+                           selectedTrain && routeSet[selectedTrain.id] === track.name ? 'Route Set' :
                            'Available'}
                         </div>
                         
@@ -241,10 +240,10 @@ export function StationMasterDashboard() {
                         {track.status === 'occupied' && (
                           <div className="w-full h-2 bg-red-500 rounded-full mt-2"></div>
                         )}
-                        {track.status === 'clear' && !routeSet[selectedTrain?.id] && (
+                        {track.status === 'clear' && (!selectedTrain || !routeSet[selectedTrain.id]) && (
                           <div className="w-full h-2 bg-green-500 rounded-full mt-2"></div>
                         )}
-                        {routeSet[selectedTrain?.id] === track.name && (
+                        {selectedTrain && routeSet[selectedTrain.id] === track.name && (
                           <div className="w-full h-2 bg-blue-500 rounded-full mt-2"></div>
                         )}
                         {track.status === 'maintenance' && (

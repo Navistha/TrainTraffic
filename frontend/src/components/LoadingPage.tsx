@@ -1,4 +1,4 @@
-import railwayLogo from 'figma:asset/de6da6a664b190e144e4d86f4481b866fee10e67.png';
+import railwayLogo from '../assets/de6da6a664b190e144e4d86f4481b866fee10e67.png';
 
 export function LoadingPage() {
   return (
