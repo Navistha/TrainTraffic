@@ -11,7 +11,6 @@ venv/
 # Environment files
 .env
 *.env
-*.log
 
 # IDE
 .vscode/
@@ -20,8 +19,13 @@ venv/
 # OS files
 .DS_Store
 
-# Helper files
+# BY NEHAL
+*.log
 add_missing_tracks.py
 debug_missing_segments.py
 WARP.md
 BOOKING_SYSTEM_SUMMARY.md
+freight_demand_data.py
+freight_demand_train.py
+README_freight_demand.md
+freight_demand_simulated.csv

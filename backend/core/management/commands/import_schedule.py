@@ -7,7 +7,7 @@ class Command(BaseCommand):
     help = 'Imports schedule data from schedule_output.csv'
 
     def handle(self, *args, **kwargs):
-        csv_file_path = 'datasets/schedule_output.csv'
+        csv_file_path = 'datasets/schedules/schedule_output.csv'
         self.stdout.write(f"Importing schedule from {csv_file_path}...")
 
         with open(csv_file_path, mode='r', encoding='utf-8') as file:

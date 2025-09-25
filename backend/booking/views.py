@@ -6,16 +6,22 @@ from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.db.models import Q
+from django.conf import settings
 from datetime import datetime, timedelta
 import logging
+import os
+import joblib
+import pandas as pd
 
 from .models import Station, MaterialType, RouteComplexity, Freight
 from .serializers import (
     StationSerializer, MaterialTypeSerializer, RouteComplexitySerializer,
     FreightListSerializer, FreightDetailSerializer, FreightBookingSerializer,
-    FreightBookingResponseSerializer, FreightTrackingSerializer, FreightUpdateSerializer
+    FreightBookingResponseSerializer, FreightTrackingSerializer, FreightUpdateSerializer,
+    FreightDemandForecastRequestSerializer, FreightDemandForecastResponseSerializer,
 )
 from .ml_utils import predict_freight_delay
+from .ml_models.freight_demand_forecast import recursive_forecast
 
 logger = logging.getLogger(__name__)
 
@@ -273,3 +279,103 @@ def get_freight_statistics(request):
             {'error': 'Unable to fetch statistics'}, 
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+@api_view(["POST"]) 
+def freight_demand_forecast(request):
+    """
+    Generate a goods + location-wise forecast of wagons required for the next N days.
+
+    Request body (optional fields):
+    - horizon_days: int (default 30)
+    - locations: [str]
+    - goods_types: [str]
+    - save_csv: bool (default False) => writes to backend/datasets/forecasts/freight_demand_forecast_next_30_days.csv
+
+    Returns JSON list of {date, location, goods_type, predicted_wagons}.
+
+    Example JSON payloads:
+    1) Minimal (defaults; 30-day horizon, no filters, no CSV saved)
+       {}
+
+    2) Save CSV too (writes to backend/datasets/forecasts/freight_demand_forecast_next_30_days.csv)
+       {
+         "save_csv": true
+       }
+
+    3) Filter by locations and goods, custom horizon
+       {
+         "horizon_days": 30,
+         "locations": ["Delhi", "Kanpur"],
+         "goods_types": ["coal", "food"],
+         "save_csv": true
+       }
+
+    Accepted values:
+    - locations: ["Delhi", "Kanpur", "Itarsi", "Mughalsarai", "Prayagraj"]
+    - goods_types: ["coal", "food", "automobile", "oil", "electronics"]
+    """
+    serializer = FreightDemandForecastRequestSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    params = serializer.validated_data
+    horizon = params.get("horizon_days", 30)
+    locations = params.get("locations") or []
+    goods_types = params.get("goods_types") or []
+    save_csv = params.get("save_csv", False)
+
+    try:
+        datasets_dir = os.path.join(settings.BASE_DIR, "datasets")
+        data_csv = os.path.join(datasets_dir, "freight_demand_simulated.csv")
+        forecasts_dir = os.path.join(datasets_dir, "forecasts")
+        os.makedirs(forecasts_dir, exist_ok=True)
+        out_csv = os.path.join(forecasts_dir, "freight_demand_forecast_next_30_days.csv")
+
+        model_path = os.path.join(settings.BASE_DIR, "booking", "ml_models", "freight_demand_model.joblib")
+        if not os.path.exists(model_path):
+            return Response({"error": "Model not found. Train it first."}, status=status.HTTP_400_BAD_REQUEST)
+        if not os.path.exists(data_csv):
+            return Response({"error": "Data not found. Generate data first."}, status=status.HTTP_400_BAD_REQUEST)
+
+# Simple in-process cache to avoid reloading the large model on every request
+        global _FREIGHT_DEMAND_ARTIFACT
+        try:
+            _FREIGHT_DEMAND_ARTIFACT
+        except NameError:  # first use
+            _FREIGHT_DEMAND_ARTIFACT = None
+
+        if _FREIGHT_DEMAND_ARTIFACT is None:
+            _FREIGHT_DEMAND_ARTIFACT = joblib.load(model_path)
+        artifact = _FREIGHT_DEMAND_ARTIFACT
+        model = artifact["model"]
+        feature_cols = artifact["feature_cols"]
+
+        hist = pd.read_csv(data_csv, parse_dates=["date"])  # date, location, goods_type, wagons_required
+
+        # Optional filtering of history to requested locations/goods
+        if locations:
+            hist = hist[hist["location"].isin(locations)]
+        if goods_types:
+            hist = hist[hist["goods_type"].isin(goods_types)]
+
+        if hist.empty:
+            return Response({"error": "No historical data for given filters."}, status=status.HTTP_400_BAD_REQUEST)
+
+        preds = recursive_forecast(model, feature_cols, hist, horizon_days=horizon)
+        preds = preds.sort_values(["location", "goods_type", "date"]).reset_index(drop=True)
+
+        saved_path = None
+        if save_csv:
+            preds.to_csv(out_csv, index=False)
+            saved_path = out_csv
+
+        resp = {
+            "results": preds.to_dict(orient="records"),
+            "saved_csv_path": saved_path,
+        }
+        return Response(resp)
+
+    except Exception as e:
+        logger.exception("Error generating freight demand forecast")
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
