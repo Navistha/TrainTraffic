@@ -1,8 +1,10 @@
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 
+# This custom user model for system authentication remains unchanged.
 class EmployeeManager(BaseUserManager):
     def create_user(self, work_id, password=None, **extra_fields):
+        # ... (implementation remains the same)
         if not work_id:
             raise ValueError("Work ID is required")
         user = self.model(work_id=work_id, **extra_fields)
@@ -14,106 +16,134 @@ class EmployeeManager(BaseUserManager):
         return user
 
     def create_superuser(self, work_id, password=None, **extra_fields):
+        # ... (implementation remains the same)
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
         return self.create_user(work_id, password, **extra_fields)
 
-
 class Employee(AbstractBaseUser, PermissionsMixin):
+    # ... (model remains the same)
     ROLE_CHOICES = [
         ("station_master", "Station Master"),
         ("section_controller", "Section Controller"),
         ("freight_operator", "Freight Operator"),
         ("track_manager", "Track Manager"),
     ]
-
     work_id = models.CharField(max_length=50, unique=True)
     name = models.CharField(max_length=100)
     role = models.CharField(max_length=50, choices=ROLE_CHOICES)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
-
     objects = EmployeeManager()
-
     USERNAME_FIELD = "work_id"
     REQUIRED_FIELDS = ["name", "role"]
-
     def __str__(self):
         return f"{self.name} ({self.role})"
 
+
+# Mapped to stations.csv
 class Station(models.Model):
-    id = models.CharField(primary_key=True)
+    id = models.CharField(primary_key=True, max_length=255)
     station_code = models.CharField(max_length=10, unique=True)
     station_name = models.CharField(max_length=255)
+    division = models.CharField(max_length=100, blank=True, null=True) # ADDED
     state = models.CharField(max_length=100, blank=True, null=True)
-    platforms = models.IntegerField(default=1)
     latitude = models.FloatField(blank=True, null=True)
     longitude = models.FloatField(blank=True, null=True)
-
-    class Meta:
-        db_table = "stations"   # map to existing Postgres table
+    platforms = models.IntegerField(default=1)
 
     def __str__(self):
         return f"{self.station_name} ({self.station_code})"
 
-
+# Mapped to trains.csv
 class Train(models.Model):
+    train_id = models.CharField(primary_key=True, max_length=255) # CHANGED to primary key
     train_number = models.CharField(max_length=20, unique=True)
     train_name = models.CharField(max_length=255)
-    source_station = models.CharField(max_length=10)
-    destination_station = models.CharField(max_length=10)
-    total_coaches = models.IntegerField(default=12)
-
-    class Meta:
-        db_table = "trains"
+    train_type = models.CharField(max_length=50, blank=True, null=True) # ADDED
+    priority_level = models.CharField(max_length=50, blank=True, null=True) # ADDED
+    scheduled_route = models.TextField(blank=True, null=True) # ADDED
+    coach_length = models.IntegerField(default=12) # RENAMED from total_coaches
+    max_speed_kmph = models.IntegerField(blank=True, null=True) # ADDED
+    # REMOVED source_station and destination_station as they are not in the new CSV.
 
     def __str__(self):
         return f"{self.train_name} ({self.train_number})"
 
-
+# Mapped to tracks.csv
 class Track(models.Model):
-    track_id = models.AutoField(primary_key=True)
-    source_station_id = models.CharField(max_length=10)
-    destination_station_id = models.CharField(max_length=10)
+    # This model matches your new CSV structure well.
+    track_id = models.CharField(primary_key=True, max_length=255)
+    source_station = models.ForeignKey(Station, on_delete=models.CASCADE, related_name="tracks_from")
+    destination_station = models.ForeignKey(Station, on_delete=models.CASCADE, related_name="tracks_to")
     distance_km = models.FloatField()
-    track_type = models.CharField(max_length=50, default="unknown") 
+    track_type = models.CharField(max_length=50, default="unknown")
     electrification = models.BooleanField(default=False)
-    speed_limit=models.IntegerField(help_text="Speed limit in km/h",default=90)
-    status = models.CharField(max_length=50, default="active")  # e.g., active, under_maintenance
-
-    class Meta:
-        db_table = "tracks"
+    speed_limit = models.IntegerField(help_text="Speed limit in km/h", default=90)
+    status = models.CharField(max_length=50, default="active")
 
     def __str__(self):
-        return f"Track {self.track_id}: {self.source_station_id} → {self.destination_station_id}"
+        return f"Track {self.track_id}: {self.source_station.station_code} → {self.destination_station.station_code}"
 
-
+# Mapped to railway_worker.csv
 class RailwayWorker(models.Model):
-    worker_id = models.AutoField(primary_key=True)
-    govt_id = models.CharField(max_length=20, unique=True, null=True, blank=True)
+    govt_id = models.CharField(primary_key=True, max_length=20)
     name = models.CharField(max_length=255)
-    designation = models.CharField(max_length=100)
-    department = models.CharField(max_length=100)
-    assigned_station = models.CharField(max_length=10, blank=True, null=True)
-
-    class Meta:
-        db_table = "railway_workers"
+    role = models.CharField(max_length=100) # CHANGED from designation
+    level = models.CharField(max_length=50, blank=True, null=True) # ADDED
+    assigned_station = models.ForeignKey(Station, on_delete=models.SET_NULL, blank=True, null=True)
+    # REMOVED department as it's not in the new CSV.
 
     def __str__(self):
-        return f"{self.name} ({self.designation})"
+        return f"{self.name} ({self.role})"
 
-
+# Mapped to traindelay.csv (replaces the old RealTimeDelay model)
 class RealTimeDelay(models.Model):
-    id = models.AutoField(primary_key=True)
-    train_number = models.CharField(max_length=20)
-    station_code = models.CharField(max_length=10)
-    scheduled_arrival = models.DateTimeField()
-    actual_arrival = models.DateTimeField(blank=True, null=True)
+    train = models.ForeignKey(Train, on_delete=models.CASCADE)
+    current_station = models.ForeignKey(Station, on_delete=models.CASCADE)
+    actual_arrival_time = models.DateTimeField(blank=True, null=True)
+    actual_departure_time = models.DateTimeField(blank=True, null=True)
     delay_minutes = models.IntegerField(default=0)
-    predicted_delay = models.FloatField(default=0) 
-
-    class Meta:
-        db_table = "realtime_delay"
+    track_status = models.CharField(max_length=100, blank=True, null=True)
+    weather_impact = models.CharField(max_length=100, blank=True, null=True)
+    train_type = models.CharField(max_length=50, blank=True, null=True)
+    priority_level = models.CharField(max_length=50, blank=True, null=True)
+    coach_length = models.IntegerField(blank=True, null=True)
+    max_speed_kmph = models.IntegerField(blank=True, null=True)
+    delayed_flag = models.BooleanField(default=False)
 
     def __str__(self):
-        return f"{self.train_number} - {self.station_code} ({self.delay_minutes} min delay)"
+        return f"Delay for {self.train.train_number} at {self.current_station.station_code}"
+
+# NEW MODEL: Mapped to freights.csv
+class Freight(models.Model):
+    freight_id = models.CharField(primary_key=True, max_length=255)
+    current_station = models.ForeignKey(Station, on_delete=models.CASCADE)
+    actual_arrival_time = models.DateTimeField(blank=True, null=True)
+    actual_departure_time = models.DateTimeField(blank=True, null=True)
+    delay_minutes = models.IntegerField(default=0)
+    track_status = models.CharField(max_length=100, blank=True, null=True)
+    weather_impact = models.CharField(max_length=100, blank=True, null=True)
+    freight_type = models.CharField(max_length=50, blank=True, null=True)
+    priority_level = models.CharField(max_length=50, blank=True, null=True)
+    coach_length = models.IntegerField(blank=True, null=True)
+    max_speed_kmph = models.IntegerField(blank=True, null=True)
+    delayed_flag = models.BooleanField(default=False)
+    timestamp = models.DateTimeField()
+
+    def __str__(self):
+        return f"Freight {self.freight_id} at {self.current_station.station_code}"
+
+# NEW MODEL: Mapped to schedule_output.csv
+class Schedule(models.Model):
+    train = models.ForeignKey(Train, on_delete=models.CASCADE)
+    track = models.ForeignKey(Track, on_delete=models.CASCADE)
+    from_station = models.ForeignKey(Station, on_delete=models.CASCADE, related_name="schedule_departures")
+    to_station = models.ForeignKey(Station, on_delete=models.CASCADE, related_name="schedule_arrivals")
+    priority = models.CharField(max_length=50, blank=True, null=True)
+    start_time = models.DateTimeField()
+    end_time = models.DateTimeField()
+    duration_min = models.IntegerField()
+
+    def __str__(self):
+        return f"Schedule: {self.train.train_number} on {self.track.track_id}"
