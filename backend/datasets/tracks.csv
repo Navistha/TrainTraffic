@@ -109,7 +109,7 @@ TRK0107,STN115,STN116,66.2,single,yes,100,operational[5]
 TRK0108,STN119,STN124,27.5,double,yes,110,operational[5]
 TRK0109,STN121,STN129,2.5,double,yes,110,operational[5]
 TRK0110,STN136,STN137,0.0,double,yes,110,operational[5]
-TRK0111,STN145,STN146,0.6,double,yes,110,operational[1]
+TRK0111,STN145,STN137,0.6,double,yes,110,operational[1]
 TRK0112,STN003,STN037,10.0,double,yes,120,operational
 TRK0113,STN004,STN036,10.0,double,yes,120,operational
 TRK0114,STN004,STN037,10.0,double,yes,120,operational

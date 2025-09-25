@@ -15,7 +15,7 @@ class EmployeeLoginView(APIView):
             return Response({
                 "message": "Login successful",
                 "employee": {
-                    "work_id": user.work_id,
+                    "work_id": user.govt_id,
                     "name": user.name,
                     "role": user.role,
                 }

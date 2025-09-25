@@ -26,7 +26,7 @@ class Command(BaseCommand):
                     assigned_station_code = row.get('Assigned_Station')
                     if assigned_station_code:
                         # Look up the station by its short code
-                        station = Station.objects.get(station_code=assigned_station_code)
+                        station = Station.objects.get(id=assigned_station_code)
 
                     RailwayWorker.objects.update_or_create(
                         govt_id=row['Govt_ID'],

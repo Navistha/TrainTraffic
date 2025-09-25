@@ -15,11 +15,11 @@ class EmployeeManager(BaseUserManager):
         user.save(using=self._db)
         return user
 
-    def create_superuser(self, work_id, password=None, **extra_fields):
+    def create_superuser(self, govt_id, password=None, **extra_fields):
         # ... (implementation remains the same)
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
-        return self.create_user(work_id, password, **extra_fields)
+        return self.create_user(govt_id, password, **extra_fields)
 
 class Employee(AbstractBaseUser, PermissionsMixin):
     # ... (model remains the same)
@@ -29,13 +29,13 @@ class Employee(AbstractBaseUser, PermissionsMixin):
         ("freight_operator", "Freight Operator"),
         ("track_manager", "Track Manager"),
     ]
-    work_id = models.CharField(max_length=50, unique=True)
+    govt_id = models.CharField(max_length=50, unique=True)
     name = models.CharField(max_length=100)
     role = models.CharField(max_length=50, choices=ROLE_CHOICES)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     objects = EmployeeManager()
-    USERNAME_FIELD = "work_id"
+    USERNAME_FIELD = "govt_id"
     REQUIRED_FIELDS = ["name", "role"]
     def __str__(self):
         return f"{self.name} ({self.role})"
@@ -108,8 +108,8 @@ class RealTimeDelay(models.Model):
     weather_impact = models.CharField(max_length=100, blank=True, null=True)
     train_type = models.CharField(max_length=50, blank=True, null=True)
     priority_level = models.CharField(max_length=50, blank=True, null=True)
-    coach_length = models.IntegerField(blank=True, null=True)
-    max_speed_kmph = models.IntegerField(blank=True, null=True)
+    coach_length = models.FloatField(blank=True, null=True)
+    max_speed_kmph = models.FloatField(blank=True, null=True)
     delayed_flag = models.BooleanField(default=False)
 
     def __str__(self):
