@@ -10,6 +10,11 @@ from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.linear_model import LinearRegression, LogisticRegression
+import warnings
+from sklearn.exceptions import InconsistentVersionWarning
+
+warnings.filterwarnings("ignore", category=InconsistentVersionWarning)
+
 
 # ===================== PATHS =====================
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -104,6 +109,7 @@ def train_and_save_model():
     print(f"[INFO] Model trained and saved at {TRAIN_MODEL_PATH}")
 
 # ===================== PREDICTION =====================
+# ===================== PREDICTION =====================
 def predict_freight_delay(freight_id: str):
     if not os.path.exists(TRAIN_MODEL_PATH):
         raise FileNotFoundError("Trained model not found!")
@@ -111,20 +117,28 @@ def predict_freight_delay(freight_id: str):
     df = pd.read_csv(DATA_PATH)
     if freight_id not in df["freight_id"].values:
         return {"error": f"Freight ID {freight_id} not found!"}
-    
+
     freight = df[df["freight_id"] == freight_id]
     X = freight.drop(columns=["delay_minutes", "delayed_flag", "freight_id", "actual_arrival_time", "actual_departure_time"])
-    
-    with open(TRAIN_MODEL_PATH, "rb") as f:
-        models = pickle.load(f)
+
+    # ===== Only load your own model =====
+    try:
+        with open(TRAIN_MODEL_PATH, "rb") as f:
+            models = pickle.load(f)
+    except InconsistentVersionWarning:
+        # fallback: retrain if versions mismatch (optional)
+        train_and_save_model()
+        with open(TRAIN_MODEL_PATH, "rb") as f:
+            models = pickle.load(f)
+
     regressor = models["regressor"]
     classifier = models["classifier"]
-    
+
     delay_pred = regressor.predict(X)[0]
     flag_pred = classifier.predict(X)[0]
-    
+
     delay_pred = max(0, delay_pred) if flag_pred == 1 else 0
-    
+
     return {
         "freight_id": freight_id,
         "from_station": freight["from_station"].values[0],
@@ -132,6 +146,7 @@ def predict_freight_delay(freight_id: str):
         "predicted_delay_minutes": round(float(delay_pred), 2),
         "predicted_delayed_flag": int(flag_pred),
     }
+
 
 # ===================== LIVE STATUS =====================
 def live_status(freight_id: str, interval=10):
