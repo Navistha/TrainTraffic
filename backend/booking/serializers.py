@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import Station, MaterialType, RouteComplexity, Freight
 from datetime import datetime, timedelta
+from typing import List
 
 
 class StationSerializer(serializers.ModelSerializer):
@@ -163,3 +164,23 @@ class FreightUpdateSerializer(serializers.ModelSerializer):
                 )
         
         return value
+
+
+class FreightDemandForecastRequestSerializer(serializers.Serializer):
+    """Optional filters and settings for freight demand forecast."""
+    horizon_days = serializers.IntegerField(min_value=1, max_value=60, required=False, default=30)
+    locations = serializers.ListField(child=serializers.CharField(), required=False, allow_empty=True)
+    goods_types = serializers.ListField(child=serializers.CharField(), required=False, allow_empty=True)
+    save_csv = serializers.BooleanField(required=False, default=False)
+
+
+class FreightDemandForecastItemSerializer(serializers.Serializer):
+    date = serializers.DateField()
+    location = serializers.CharField()
+    goods_type = serializers.CharField()
+    predicted_wagons = serializers.IntegerField()
+
+
+class FreightDemandForecastResponseSerializer(serializers.Serializer):
+    results = FreightDemandForecastItemSerializer(many=True)
+    saved_csv_path = serializers.CharField(allow_null=True, required=False)
