@@ -49,7 +49,8 @@ def run_scheduler(request):
 
     # logic to write the same results to a CSV file
     try:
-        output_path = os.path.join(settings.BASE_DIR, "datasets", "schedule_output.csv")
+        output_path = os.path.join(settings.BASE_DIR, "datasets", "schedules", "schedule_output.csv")
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
         
         # Prepare data for CSV
         rows = []
