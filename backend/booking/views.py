@@ -70,6 +70,31 @@ class FreightViewSet(viewsets.ModelViewSet):
     # filterset_fields = ['status', 'predicted_delay', 'origin', 'destination', 'material_type']  # TODO: Add django-filter
     ordering_fields = ['created_at', 'scheduled_departure', 'freight_id']
     ordering = ['-created_at']
+
+    @action(detail=False, methods=['get', 'post'], url_path='forecast')
+    def forecast(self, request):
+        """Freight demand forecast API mounted under the router.
+        - POST /api/booking/freights/forecast/ with JSON body to run forecast
+        - GET  /api/booking/freights/forecast/ returns usage examples and accepted values
+        """
+        if request.method.lower() == 'get':
+            examples = {
+                "minimal": {},
+                "save_csv": {"save_csv": True},
+                "filtered": {
+                    "horizon_days": 30,
+                    "locations": ["Delhi", "Kanpur"],
+                    "goods_types": ["coal", "food"],
+                    "save_csv": True
+                },
+                "accepted_values": {
+                    "locations": ["Delhi", "Kanpur", "Itarsi", "Mughalsarai", "Prayagraj"],
+                    "goods_types": ["coal", "food", "automobile", "oil", "electronics"]
+                }
+            }
+            return Response(examples)
+        # Call the API-view function with the underlying Django HttpRequest to avoid double-wrapping
+        return freight_demand_forecast(request._request)
     
     def get_serializer_class(self):
         """Return appropriate serializer based on action"""
