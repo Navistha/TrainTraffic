@@ -3,24 +3,33 @@ from rest_framework.response import Response
 from rest_framework import status, generics, filters
 from django.contrib.auth import login
 from django.shortcuts import get_object_or_404
-from .serializer import EmployeeLoginSerializer, RailwayWorkerSerializer
+from .serializer import  RailwayWorkerSerializer
 from .models import RailwayWorker
 
 class EmployeeLoginView(APIView):
     def post(self, request):
-        serializer = EmployeeLoginSerializer(data=request.data)
-        if serializer.is_valid():
-            user = serializer.validated_data["user"]
-            # login(request, user, backend="django.contrib.auth.backends.ModelBackend")
-            return Response({
-                "message": "Login successful",
-                "employee": {
-                    "work_id": user.govt_id,
-                    "name": user.name,
-                    "role": user.role,
-                }
-            }, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        govt_id = request.data.get("govt_id")
+        name = request.data.get("name")
+        role = request.data.get("role")
+
+        try:
+            employee = RailwayWorker.objects.get(govt_id=govt_id, name=name, role=role)
+        except RailwayWorker.DoesNotExist:
+            return Response(
+                {"error": "Invalid credentials"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        return Response({
+            "message": "Login successful",
+            "employee": {
+                "govt_id": employee.govt_id,
+                "name": employee.name,
+                "role": employee.role,
+            }
+        }, status=status.HTTP_200_OK)
+
+
 
 
 class RailwayWorkerListView(generics.ListAPIView):
