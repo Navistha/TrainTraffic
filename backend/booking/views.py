@@ -12,6 +12,7 @@ import logging
 import os
 import joblib
 import pandas as pd
+from rest_framework.renderers import JSONRenderer, BrowsableAPIRenderer
 
 from .models import Station, MaterialType, RouteComplexity, Freight
 from .serializers import (
@@ -22,6 +23,11 @@ from .serializers import (
 )
 from .ml_utils import predict_freight_delay
 from .ml_models.freight_demand_forecast import recursive_forecast
+
+# Custom renderer that keeps the browsable page but hides HTML forms
+class NoFormBrowsableAPIRenderer(BrowsableAPIRenderer):
+    def get_rendered_html_form(self, data, view, method, request):
+        return None
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +77,13 @@ class FreightViewSet(viewsets.ModelViewSet):
     ordering_fields = ['created_at', 'scheduled_departure', 'freight_id']
     ordering = ['-created_at']
 
-    @action(detail=False, methods=['get', 'post'], url_path='forecast')
+    @action(
+        detail=False,
+        methods=['get', 'post'],
+        url_path='forecast',
+        renderer_classes=[JSONRenderer, NoFormBrowsableAPIRenderer],
+        serializer_class=FreightDemandForecastRequestSerializer,
+    )
     def forecast(self, request):
         """Freight demand forecast API mounted under the router.
         - POST /api/booking/freights/forecast/ with JSON body to run forecast
@@ -98,6 +110,8 @@ class FreightViewSet(viewsets.ModelViewSet):
     
     def get_serializer_class(self):
         """Return appropriate serializer based on action"""
+        if getattr(self, 'action', None) == 'forecast':
+            return FreightDemandForecastRequestSerializer
         if self.action == 'list':
             return FreightListSerializer
         elif self.action in ['retrieve', 'update', 'partial_update']:
