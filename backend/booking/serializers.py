@@ -1,7 +1,6 @@
 from rest_framework import serializers
 from .models import Station, MaterialType, RouteComplexity, Freight
-from datetime import datetime, timedelta
-from typing import List
+from datetime import datetime
 
 
 class StationSerializer(serializers.ModelSerializer):

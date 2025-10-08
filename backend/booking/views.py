@@ -1,8 +1,7 @@
 from rest_framework import generics, status, viewsets, filters
 from rest_framework.decorators import api_view, action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-# from django_filters.rest_framework import DjangoFilterBackend  # TODO: Install django-filter
+from rest_framework.renderers import JSONRenderer, BrowsableAPIRenderer
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.db.models import Q
@@ -22,6 +21,13 @@ from .serializers import (
 )
 from .ml_utils import predict_freight_delay
 from .ml_models.freight_demand_forecast import recursive_forecast
+
+# Custom renderer that keeps the browsable page but hides HTML forms
+class NoFormBrowsableAPIRenderer(BrowsableAPIRenderer):
+    """Custom renderer that keeps the browsable API page but hides HTML forms."""
+    def get_rendered_html_form(self, data, view, method, request):
+        """Override to return None, hiding the HTML form."""
+        return None
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +63,6 @@ class RouteComplexityListView(generics.ListCreateAPIView):
     queryset = RouteComplexity.objects.all()
     serializer_class = RouteComplexitySerializer
     filter_backends = [filters.OrderingFilter]
-    # filterset_fields = ['origin', 'destination', 'complexity_score']  # TODO: Add django-filter
     ordering_fields = ['complexity_score', 'distance_km']
     ordering = ['complexity_score']
 
@@ -67,12 +72,44 @@ class FreightViewSet(viewsets.ModelViewSet):
     queryset = Freight.objects.all()
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['freight_id', 'origin__name', 'destination__name', 'material_type__name']
-    # filterset_fields = ['status', 'predicted_delay', 'origin', 'destination', 'material_type']  # TODO: Add django-filter
     ordering_fields = ['created_at', 'scheduled_departure', 'freight_id']
     ordering = ['-created_at']
+
+    @action(
+        detail=False,
+        methods=['get', 'post'],
+        url_path='forecast',
+        renderer_classes=[JSONRenderer, NoFormBrowsableAPIRenderer],
+        serializer_class=FreightDemandForecastRequestSerializer,
+    )
+    def forecast(self, request):
+        """Freight demand forecast API mounted under the router.
+        - POST /api/booking/freights/forecast/ with JSON body to run forecast
+        - GET  /api/booking/freights/forecast/ returns usage examples and accepted values
+        """
+        if request.method.lower() == 'get':
+            examples = {
+                "minimal": {},
+                "save_csv": {"save_csv": True},
+                "filtered": {
+                    "horizon_days": 30,
+                    "locations": ["Delhi", "Kanpur"],
+                    "goods_types": ["coal", "food"],
+                    "save_csv": True
+                },
+                "accepted_values": {
+                    "locations": ["Delhi", "Kanpur", "Itarsi", "Mughalsarai", "Prayagraj"],
+                    "goods_types": ["coal", "food", "automobile", "oil", "electronics"]
+                }
+            }
+            return Response(examples)
+        # Call the API-view function with the underlying Django HttpRequest to avoid double-wrapping
+        return freight_demand_forecast(request._request)
     
     def get_serializer_class(self):
         """Return appropriate serializer based on action"""
+        if getattr(self, 'action', None) == 'forecast':
+            return FreightDemandForecastRequestSerializer
         if self.action == 'list':
             return FreightListSerializer
         elif self.action in ['retrieve', 'update', 'partial_update']:
@@ -338,16 +375,10 @@ def freight_demand_forecast(request):
         if not os.path.exists(data_csv):
             return Response({"error": "Data not found. Generate data first."}, status=status.HTTP_400_BAD_REQUEST)
 
-# Simple in-process cache to avoid reloading the large model on every request
-        global _FREIGHT_DEMAND_ARTIFACT
-        try:
-            _FREIGHT_DEMAND_ARTIFACT
-        except NameError:  # first use
-            _FREIGHT_DEMAND_ARTIFACT = None
-
-        if _FREIGHT_DEMAND_ARTIFACT is None:
-            _FREIGHT_DEMAND_ARTIFACT = joblib.load(model_path)
-        artifact = _FREIGHT_DEMAND_ARTIFACT
+        # Simple in-process cache to avoid reloading the large model on every request
+        if not hasattr(freight_demand_forecast, '_freight_demand_artifact'):
+            freight_demand_forecast._freight_demand_artifact = joblib.load(model_path)
+        artifact = freight_demand_forecast._freight_demand_artifact
         model = artifact["model"]
         feature_cols = artifact["feature_cols"]
 

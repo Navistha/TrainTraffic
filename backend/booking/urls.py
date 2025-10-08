@@ -26,9 +26,6 @@ urlpatterns = [
     path('book/', views.book_freight, name='book-freight'),
     path('freights/station/', views.get_freights_by_station, name='freights-by-station'),
     path('freights/statistics/', views.get_freight_statistics, name='freight-statistics'),
-
-    # Freight demand forecast (ML)
-    path('freights/forecast/', views.freight_demand_forecast, name='freight-demand-forecast'),
     
     # Legacy endpoint support (from original Flask app)
     path('track/<str:freight_id>/', views.FreightViewSet.as_view({'get': 'track'}), name='track-freight'),

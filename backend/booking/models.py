@@ -2,6 +2,9 @@ from django.db import models
 from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils import timezone
+from django.core.exceptions import ValidationError
+import random
+import string
 
 
 class Station(models.Model):
@@ -17,6 +20,8 @@ class Station(models.Model):
     
     class Meta:
         ordering = ['name']
+        verbose_name = 'Railway Station'
+        verbose_name_plural = 'Railway Stations'
         
     def __str__(self):
         return self.name
@@ -32,6 +37,8 @@ class MaterialType(models.Model):
     
     class Meta:
         ordering = ['name']
+        verbose_name = 'Material Type'
+        verbose_name_plural = 'Material Types'
         
     def __str__(self):
         return self.name
@@ -50,6 +57,13 @@ class RouteComplexity(models.Model):
     class Meta:
         unique_together = ('origin', 'destination')
         ordering = ['complexity_score']
+        verbose_name = 'Route Complexity'
+        verbose_name_plural = 'Route Complexities'
+    
+    def clean(self):
+        """Validate that origin and destination are different"""
+        if self.origin and self.destination and self.origin == self.destination:
+            raise ValidationError("Origin and destination cannot be the same station.")
         
     def __str__(self):
         return f"{self.origin} → {self.destination} (Score: {self.complexity_score})"
@@ -69,12 +83,41 @@ class Freight(models.Model):
         ('cancelled', 'Cancelled'),
     ]
     
-    freight_id = models.CharField(max_length=20, unique=True, editable=False)
-    origin = models.ForeignKey(Station, on_delete=models.CASCADE, related_name='freight_origins')
-    destination = models.ForeignKey(Station, on_delete=models.CASCADE, related_name='freight_destinations')
-    material_type = models.ForeignKey(MaterialType, on_delete=models.CASCADE)
-    quantity = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0.01)])
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='free')
+    freight_id = models.CharField(
+        max_length=20, 
+        unique=True, 
+        editable=False,
+        help_text="Automatically generated unique freight identifier"
+    )
+    origin = models.ForeignKey(
+        Station, 
+        on_delete=models.CASCADE, 
+        related_name='freight_origins',
+        help_text="Origin station for the freight"
+    )
+    destination = models.ForeignKey(
+        Station, 
+        on_delete=models.CASCADE, 
+        related_name='freight_destinations',
+        help_text="Destination station for the freight"
+    )
+    material_type = models.ForeignKey(
+        MaterialType, 
+        on_delete=models.CASCADE,
+        help_text="Type of material being transported"
+    )
+    quantity = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        validators=[MinValueValidator(0.01)],
+        help_text="Quantity of material in specified units"
+    )
+    status = models.CharField(
+        max_length=20, 
+        choices=STATUS_CHOICES, 
+        default='free',
+        help_text="Current status of the freight"
+    )
     
     # Scheduling information
     scheduled_departure = models.DateTimeField()
@@ -97,11 +140,39 @@ class Freight(models.Model):
     
     class Meta:
         ordering = ['-created_at']
+        verbose_name = 'Freight Booking'
+        verbose_name_plural = 'Freight Bookings'
         
+    def clean(self):
+        """Validate freight booking data"""
+        if self.origin and self.destination and self.origin == self.destination:
+            raise ValidationError("Origin and destination cannot be the same station.")
+        
+        if self.scheduled_arrival and self.scheduled_departure:
+            if self.scheduled_arrival <= self.scheduled_departure:
+                raise ValidationError("Scheduled arrival must be after scheduled departure.")
+        
+        if self.actual_arrival and self.actual_departure:
+            if self.actual_arrival <= self.actual_departure:
+                raise ValidationError("Actual arrival must be after actual departure.")
+    
+    def _generate_unique_freight_id(self):
+        """Generate a unique freight ID with retries to prevent collisions"""
+        for _ in range(10):  # Try up to 10 times
+            # Generate a more unique ID with timestamp and random components
+            timestamp = timezone.now().strftime('%y%m%d')
+            random_chars = ''.join(random.choices(string.digits, k=4))
+            freight_id = f"F{timestamp}{random_chars}"
+            
+            if not Freight.objects.filter(freight_id=freight_id).exists():
+                return freight_id
+        
+        # Fallback to original method if all attempts fail
+        return f"F{random.randint(100000000, 999999999)}"
+    
     def save(self, *args, **kwargs):
         if not self.freight_id:
-            import random
-            self.freight_id = f"F{random.randint(1000000, 9999999)}"
+            self.freight_id = self._generate_unique_freight_id()
         super().save(*args, **kwargs)
         
     def __str__(self):

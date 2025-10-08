@@ -1,5 +1,6 @@
 import joblib
 import os
+import random
 from django.conf import settings
 import numpy as np
 from .models import RouteComplexity, Station
@@ -49,7 +50,10 @@ DEFAULT_ROUTE_COMPLEXITY = {
 
 
 class DelayPredictor:
+    """Machine learning model wrapper for predicting freight delays."""
+    
     def __init__(self):
+        """Initialize the delay predictor and load the ML model."""
         self.model = None
         self.scaler = None
         self.model_loaded = False
@@ -163,7 +167,6 @@ class DelayPredictor:
         probability = (quantity_factor * 0.6 + complexity_factor * 0.4)
         
         # Add some randomness and ensure it's between 0.1 and 0.9
-        import random
         probability += (random.random() - 0.5) * 0.2
         return max(0.1, min(0.9, probability))
     
