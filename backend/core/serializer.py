@@ -41,15 +41,15 @@ class RealTimeDelaySerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 class EmployeeLoginSerializer(serializers.Serializer):
-    work_id = serializers.CharField(help_text="Employee Work ID")
+    govt_id = serializers.CharField(help_text="Employee Work ID")
     role = serializers.CharField(help_text="Employee role")
 
     def validate(self, data):
-        work_id = data.get("work_id")
+        govt_id = data.get("govt_id")
         role = data.get("role")
 
         try:
-            user = Employee.objects.get(work_id=work_id)
+            user = Employee.objects.get(govt_id==govt_id)
         except Employee.DoesNotExist:
             raise serializers.ValidationError("Invalid work ID")
 
