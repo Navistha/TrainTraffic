@@ -1,47 +1,44 @@
-from rest_framework.views import APIView
+# views.py
+
+from rest_framework import generics, filters, status
 from rest_framework.response import Response
-from rest_framework import status, generics, filters
-from django.contrib.auth import login
-from django.shortcuts import get_object_or_404
-from .serializer import  RailwayWorkerSerializer
-from .models import RailwayWorker
+from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.views import TokenViewBase
+from .models import Employee
+from .serializer import EmployeeSerializer, CustomTokenObtainSerializer
 
-class EmployeeLoginView(APIView):
-    def post(self, request):
-        govt_id = request.data.get("govt_id")
-        name = request.data.get("name")
-        role = request.data.get("role")
+# ------------------------------------------------------------------
+#  TOKEN AUTHENTICATION VIEW (This is the new part)
+# ------------------------------------------------------------------
+class CustomTokenObtainView(TokenViewBase):
+    """
+    Handles the POST request to log in and get tokens.
+    """
+    serializer_class = CustomTokenObtainSerializer
 
-        try:
-            employee = RailwayWorker.objects.get(govt_id=govt_id, name=name, role=role)
-        except RailwayWorker.DoesNotExist:
-            return Response(
-                {"error": "Invalid credentials"},
-                status=status.HTTP_401_UNAUTHORIZED
-            )
-
-        return Response({
-            "message": "Login successful",
-            "employee": {
-                "govt_id": employee.govt_id,
-                "name": employee.name,
-                "role": employee.role,
-            }
-        }, status=status.HTTP_200_OK)
-
-
-
-
+# ------------------------------------------------------------------
+#  YOUR EXISTING VIEWS (Now protected and corrected)
+# ------------------------------------------------------------------
 class RailwayWorkerListView(generics.ListAPIView):
-    queryset = RailwayWorker.objects.all()
-    serializer_class = RailwayWorkerSerializer
+    # This view is now protected. A valid token is required to access it.
+    permission_classes = [IsAuthenticated]
+    
+    queryset = Employee.objects.all()
+    serializer_class = EmployeeSerializer # Corrected serializer name
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ["govt_id", "name", "designation", "department", "assigned_station"]
-    ordering_fields = ["name", "designation", "department"]
+    
+    # Corrected search fields to match your RailwayWorker model
+    search_fields = ["govt_id", "name", "role", "level", "assigned_station__station_name"]
+    
+    # Corrected ordering fields
+    ordering_fields = ["name", "role", "level"]
     ordering = ["name"]
 
 
 class RailwayWorkerDetailView(generics.RetrieveAPIView):
-    queryset = RailwayWorker.objects.all()
-    serializer_class = RailwayWorkerSerializer
+    # This view is also protected.
+    permission_classes = [IsAuthenticated]
+
+    queryset = Employee.objects.all()
+    serializer_class = EmployeeSerializer # Corrected serializer name
     lookup_field = "govt_id"

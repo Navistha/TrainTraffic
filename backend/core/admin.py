@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Station, Train, Track, RailwayWorker, RealTimeDelay, Freight, Schedule
+from .models import Station, Train, Track, Employee, RealTimeDelay, Freight, Schedule
 
 @admin.register(Station)
 class StationAdmin(admin.ModelAdmin):
@@ -16,8 +16,8 @@ class TrackAdmin(admin.ModelAdmin):
     list_display = ('track_id', 'source_station', 'destination_station', 'distance_km', 'status')
     list_filter = ('status', 'track_type', 'electrification')
 
-@admin.register(RailwayWorker)
-class RailwayWorkerAdmin(admin.ModelAdmin):
+@admin.register(Employee)
+class EmployeeAdmin(admin.ModelAdmin):
     list_display = ('govt_id', 'name', 'role', 'level', 'assigned_station')
     search_fields = ('name', 'govt_id')
     list_filter = ('role', 'level')

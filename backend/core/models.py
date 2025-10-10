@@ -3,11 +3,11 @@ from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, Permis
 
 # This custom user model for system authentication remains unchanged.
 class EmployeeManager(BaseUserManager):
-    def create_user(self, work_id, password=None, **extra_fields):
+    def create_user(self, govt_id, password=None, **extra_fields):
         # ... (implementation remains the same)
-        if not work_id:
+        if not govt_id:
             raise ValueError("Work ID is required")
-        user = self.model(work_id=work_id, **extra_fields)
+        user = self.model(govt_id=govt_id, **extra_fields)
         if password:
             user.set_password(password)
         else:
@@ -34,6 +34,8 @@ class Employee(AbstractBaseUser, PermissionsMixin):
     role = models.CharField(max_length=50, choices=ROLE_CHOICES)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
+    level = models.CharField(max_length=50, blank=True, null=True)
+    assigned_station = models.ForeignKey('Station', on_delete=models.SET_NULL, blank=True, null=True)
     objects = EmployeeManager()
     USERNAME_FIELD = "govt_id"
     REQUIRED_FIELDS = ["name", "role"]
@@ -85,17 +87,6 @@ class Track(models.Model):
     def __str__(self):
         return f"Track {self.track_id}: {self.source_station.station_code} → {self.destination_station.station_code}"
 
-# Mapped to railway_worker.csv
-class RailwayWorker(models.Model):
-    govt_id = models.CharField(primary_key=True, max_length=20)
-    name = models.CharField(max_length=255)
-    role = models.CharField(max_length=100) # CHANGED from designation
-    level = models.CharField(max_length=50, blank=True, null=True) # ADDED
-    assigned_station = models.ForeignKey(Station, on_delete=models.SET_NULL, blank=True, null=True)
-    # REMOVED department as it's not in the new CSV.
-
-    def __str__(self):
-        return f"{self.name} ({self.role})"
 
 # Mapped to traindelay.csv (replaces the old RealTimeDelay model)
 class RealTimeDelay(models.Model):
