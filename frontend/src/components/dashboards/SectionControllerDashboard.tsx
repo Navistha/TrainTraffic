@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Button } from '../ui/button.js';
+import { LogoutButton } from '../LogoutButton.js';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card.js';
 import { Badge } from '../ui/badge.js';
 import { Progress } from '../ui/progress.js';
@@ -195,12 +196,10 @@ export function SectionControllerDashboard() {
           </div>
           <div className="flex items-center space-x-4">
             <div className="text-right">
-              <p className="font-medium">Section Controller: Priya Sharma</p>
-              <p className="text-sm text-muted-foreground">ID: SC002 | Shift: Day</p>
+              <p className="font-medium">Section Controller: {localStorage.getItem('userName') || 'Section Controller'}</p>
+              <p className="text-sm text-muted-foreground">ID: {localStorage.getItem('userGovtId') || 'Unknown'} | Shift: Day</p>
             </div>
-            <Button variant="outline" onClick={() => window.location.reload()}>
-              End Shift
-            </Button>
+              <LogoutButton label="End Shift" />
           </div>
         </div>
       </div>

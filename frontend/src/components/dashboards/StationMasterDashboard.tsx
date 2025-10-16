@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Button } from '../ui/button.js';
+import { LogoutButton } from '../LogoutButton.js';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card.js';
 import { Badge } from '../ui/badge.js';
 import { Clock, Train, MapPin, AlertTriangle, Phone, FileText, CheckCircle } from 'lucide-react';
@@ -121,14 +122,12 @@ export function StationMasterDashboard() {
               <p className="text-muted-foreground">New Delhi Railway Station (NDLS)</p>
             </div>
           </div>
-          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-4">
             <div className="text-right">
-              <p className="font-medium">Station Master: Rajesh Kumar</p>
-              <p className="text-sm text-muted-foreground">ID: SM001 | Shift: Day</p>
+              <p className="font-medium">Station Master: {localStorage.getItem('userName') || 'Station Master'}</p>
+              <p className="text-sm text-muted-foreground">ID: {localStorage.getItem('userGovtId') || 'Unknown'} | Shift: Day</p>
             </div>
-            <Button variant="outline" onClick={() => window.location.reload()}>
-              End Shift
-            </Button>
+            <LogoutButton label="End Shift" />
           </div>
         </div>
       </div>

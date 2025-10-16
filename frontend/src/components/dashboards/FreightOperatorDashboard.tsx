@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Button } from '../ui/button.js';
+import { LogoutButton } from '../LogoutButton.js';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card.js';
 import { Badge } from '../ui/badge.js';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs.js';
@@ -223,14 +224,12 @@ export function FreightOperatorDashboard() {
               <p className="text-muted-foreground">Northern Railway Freight Division | Smart Wagon Management</p>
             </div>
           </div>
-          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-4">
             <div className="text-right">
-              <p className="font-medium">Freight Operator: Amit Singh</p>
-              <p className="text-sm text-muted-foreground">ID: FO003 | Shift: Day</p>
+              <p className="font-medium">Freight Operator: {localStorage.getItem('userName') || 'Operator'}</p>
+              <p className="text-sm text-muted-foreground">ID: {localStorage.getItem('userGovtId') || 'Unknown'} | Shift: Day</p>
             </div>
-            <Button variant="outline" onClick={() => window.location.reload()}>
-              End Shift
-            </Button>
+            <LogoutButton label="End Shift" />
           </div>
         </div>
       </div>

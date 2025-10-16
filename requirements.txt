@@ -9,6 +9,7 @@ django-cors-headers
 django-filter
 django-money
 djangorestframework
+djangorestframework-simplejwt
 drf-spectacular
 drf-yasg
 exceptiongroup

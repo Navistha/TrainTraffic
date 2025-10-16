@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Button } from '../ui/button.js';
+import { LogoutButton } from '../LogoutButton.js';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card.js';
 import { Badge } from '../ui/badge.js';
 import { Checkbox } from '../ui/checkbox.js';
@@ -200,8 +201,11 @@ export function TrackManagerDashboard() {
             </div>
           </div>
           <div className="text-right">
-            <p className="font-medium text-sm">Suresh Yadav</p>
-            <p className="text-xs text-muted-foreground">PWI/001</p>
+            <p className="font-medium text-sm">{localStorage.getItem('userName') || 'Track Manager'}</p>
+            <p className="text-xs text-muted-foreground">{localStorage.getItem('userGovtId') || 'Unknown'}</p>
+          </div>
+          <div>
+            <LogoutButton label="End Shift" />
           </div>
         </div>
       </div>

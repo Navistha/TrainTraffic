@@ -13,17 +13,103 @@ interface LoginPageProps {
 }
 
 export function LoginPage({ onLogin }: LoginPageProps) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [govtId, setGovtId] = useState('');
+  const [fullName, setFullName] = useState('');
+  // For this app the role is used as the 'password' per user request
   const [role, setRole] = useState('');
   const [captchaInput, setCaptchaInput] = useState('');
   const [generatedCaptcha, setGeneratedCaptcha] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = () => {
-    if (email && password && role && captchaInput === generatedCaptcha) {
-      onLogin(role);
-    } else {
-      alert('Please fill all fields correctly');
+  // Map frontend role values to backend-stored role keys used in models (snake_case)
+  const normalizeRoleForBackend = (r: string) => {
+    if (!r) return r;
+    // accept either hyphenated or snake_case
+    return r.replace(/-/g, '_').toLowerCase();
+  };
+
+  const normalizeBackendToFrontend = (backendRole: string) => {
+    if (!backendRole) return backendRole;
+    return backendRole.replace(/_/g, '-').toLowerCase();
+  };
+
+  const handleLogin = async () => {
+    if (!govtId || !fullName || !role) {
+      alert('Please fill all fields');
+      return;
+    }
+    if (captchaInput !== generatedCaptcha) {
+      alert('CAPTCHA does not match');
+      return;
+    }
+
+    const backendRole = normalizeRoleForBackend(role);
+
+    // The user asked that the "password" be the Role of the employee. We'll send the role
+    // as the password field to the backend token endpoint. Adjust the endpoint as needed.
+    const payload = {
+      govt_id: govtId,
+      name: fullName,
+      role: backendRole,
+    };
+
+    try {
+      setLoading(true);
+      // Adjust URL if backend runs on different host/port. Using relative path assumes proxy setup.
+      const tokenRes = await fetch('http://127.0.0.1:8000/login/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!tokenRes.ok) {
+        // Read raw text first (avoids consuming the body twice). Then try
+        // to parse JSON from that text for better UX.
+        let errMsg = 'Login failed';
+        const bodyText = await tokenRes.text();
+        try {
+          const errJson = JSON.parse(bodyText);
+          if (errJson.errors) {
+            const parts: string[] = [];
+            for (const k of Object.keys(errJson.errors)) {
+              const v = errJson.errors[k];
+              if (Array.isArray(v)) parts.push(`${k}: ${v.join('; ')}`);
+              else parts.push(`${k}: ${String(v)}`);
+            }
+            errMsg = parts.join('\n');
+          } else if (errJson.detail) {
+            errMsg = errJson.detail;
+          } else {
+            errMsg = JSON.stringify(errJson);
+          }
+        } catch (e) {
+          // Not JSON — use raw text
+          errMsg = bodyText || errMsg;
+        }
+        throw new Error(errMsg);
+      }
+
+      const data = await tokenRes.json();
+  // expected shape: { access, refresh, user }
+  localStorage.setItem('accessToken', data.access);
+  localStorage.setItem('refreshToken', data.refresh);
+  localStorage.setItem('userGovtId', data.user.govt_id || govtId);
+  localStorage.setItem('userName', data.user.name || fullName);
+  // store frontend role (the one used by the UI) so routing works
+  localStorage.setItem('userRole', role);
+
+  // determine frontend role for routing
+  const frontendRole = normalizeBackendToFrontend(backendRole);
+  localStorage.setItem('userRole', frontendRole);
+
+  // Call onLogin with frontend role string so App routes correctly
+  // await it so the Login loading animation remains visible during navigation
+  await onLogin(frontendRole);
+    } catch (err: any) {
+      console.error('Login error', err);
+      alert('Login failed: ' + (err.message || err));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -51,40 +137,36 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             
             <TabsContent value="login" className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Email ID</Label>
+                <Label htmlFor="govt_id">Govt ID</Label>
                 <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Enter your email"
+                  id="govt_id"
+                  type="text"
+                  value={govtId}
+                  onChange={(e) => setGovtId(e.target.value)}
+                  placeholder="Enter your Govt ID"
                 />
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="full_name">Full Name</Label>
                 <Input
-                  id="password"
+                  id="full_name"
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Enter your full name"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="role">Role (enter role as password)</Label>
+                <Input
+                  id="role"
                   type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
+                  value={role}
+                  onChange={(e) => setRole(e.target.value)}
+                  placeholder="Enter your role (e.g. station_master or station-master)"
                 />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="role">Select Your Role</Label>
-                <Select value={role} onValueChange={setRole}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose your role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="station-master">Station Master</SelectItem>
-                    <SelectItem value="section-controller">Section Controller</SelectItem>
-                    <SelectItem value="freight-operator">Freight Operator</SelectItem>
-                    <SelectItem value="track-manager">Track Manager</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
               
               <div className="space-y-2">
@@ -98,20 +180,11 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 />
               </div>
               
-              <Button onClick={handleLogin} className="w-full bg-black hover:bg-gray-800">
-                Login
+              <Button onClick={handleLogin} className="w-full bg-black hover:bg-gray-800" disabled={loading}>
+                {loading ? 'Logging in...' : 'Login'}
               </Button>
               
-              <div className="mt-6 p-4 bg-blue-50 rounded border border-blue-200">
-                <h4 className="font-medium text-blue-900 mb-2">Dummy Credentials</h4>
-                <div className="text-sm text-blue-800 space-y-1">
-                  <p>smaster@rail.gov.in</p>
-                  <p>scontroller@rail.gov.in</p>
-                  <p>foperator@rail.gov.in</p>
-                  <p>tmanager@rail.gov.in</p>
-                  <p className="font-medium">Password for all: sih@2025</p>
-                </div>
-              </div>
+              
             </TabsContent>
             
             <TabsContent value="signup" className="space-y-4">

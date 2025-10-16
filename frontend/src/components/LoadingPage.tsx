@@ -7,7 +7,7 @@ export function LoadingPage() {
         <img 
           src={railwayLogo}
           alt="Indian Railways Logo" 
-          className="w-32 h-32 object-contain"
+          className="w-32 h-32 object-contain animate-pulse"
         />
         
         <div className="text-center space-y-2">
@@ -15,9 +15,9 @@ export function LoadingPage() {
         </div>
         
         <div className="flex space-x-1">
-          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
+          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }}></div>
+          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }}></div>
         </div>
       </div>
     </div>
