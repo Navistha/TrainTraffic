@@ -17,12 +17,13 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from ml.views import PredictTrainDelay
-from core.views import EmployeeLoginView
+from core.views import EmployeeLoginView, EmployeeTokenLoginView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path("api/predict-delay/", PredictTrainDelay.as_view(), name="predict-delay"),
-    path("login/",EmployeeLoginView.as_view(), name="employee_login"),
+    # Expose /login/ as the SPA-friendly JWT login endpoint (returns access/refresh)
+    path("login/", EmployeeTokenLoginView.as_view(), name="employee_login"),
     path("api/scheduler/", include("scheduler.urls")),
     path('decision-center/', include('decision_engine.urls')),
     path('api/booking/', include('booking.urls')),
