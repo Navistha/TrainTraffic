@@ -9,7 +9,7 @@ import warnings
 # --- ML Imports ---
 from sklearn.model_selection import train_test_split, RandomizedSearchCV
 from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import OneHotEncoder, StandardScaler, FunctionTransformer
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import accuracy_score, f1_score, mean_squared_error, r2_score, classification_report
@@ -17,8 +17,7 @@ import lightgbm as lgb
 import xgboost as xgb
 
 # --- Filter Warnings ---
-# Ignore the specific "No further splits" warning from LightGBM
-warnings.filterwarnings("ignore", message="No further splits with positive gain, best gain: -inf", category=UserWarning) # Use UserWarning, more general
+warnings.filterwarnings("ignore", message="No further splits with positive gain, best gain: -inf", category=UserWarning)
 warnings.filterwarnings("ignore", message="X does not have valid feature names, but.*was fitted with feature names", category=UserWarning)
 
 # --- Setup Logging ---
@@ -30,21 +29,13 @@ try:
 except NameError:
     BASE_DIR = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
 
-# Use the original data file name (now overwritten with balanced data)
+# Use the original data file name (overwritten by the generation script)
 DATA_PATH = os.path.join(BASE_DIR, "datasets", "train_delay_data.csv")
 OUTPUT_DIR = os.path.join(BASE_DIR, "ml")
 
 CLASSIFIER_PATH = os.path.join(OUTPUT_DIR, "delay_classifier.pkl")
 REGRESSOR_PATH = os.path.join(OUTPUT_DIR, "delay_regressor.pkl")
 PREPROCESSOR_PATH = os.path.join(OUTPUT_DIR, "delay_preprocessor.pkl")
-
-# --- Function for Cyclical Encoding (for Hour) ---
-# Converts hour (0-23) into two features representing cyclical nature (sin/cos)
-def sin_transformer(period):
-    return FunctionTransformer(lambda x: np.sin(x / period * 2 * np.pi))
-
-def cos_transformer(period):
-    return FunctionTransformer(lambda x: np.cos(x / period * 2 * np.pi))
 
 # --- Main Training Function ---
 def train_and_evaluate():
@@ -53,7 +44,7 @@ def train_and_evaluate():
         df = pd.read_csv(DATA_PATH)
         # Ensure correct dtypes after loading
         if 'departure_hour' in df.columns: df['departure_hour'] = df['departure_hour'].astype(float)
-        if 'departure_dayofweek' in df.columns: df['departure_dayofweek'] = df['departure_dayofweek'].astype(str) # Treat day as categorical
+        if 'departure_dayofweek' in df.columns: df['departure_dayofweek'] = df['departure_dayofweek'].astype(str)
     except FileNotFoundError:
         logging.error("[ERROR] Dataset not found at %s. Please generate it first.", DATA_PATH)
         return
@@ -62,6 +53,7 @@ def train_and_evaluate():
         return
 
     # Clean categorical columns
+    # *** Use train_type here ***
     categorical_cols_to_clean = ["weather_impact", "track_status", "train_type", "departure_dayofweek"]
     for col in categorical_cols_to_clean:
         if col in df.columns:
@@ -70,15 +62,16 @@ def train_and_evaluate():
             logging.warning(f"[WARN] Expected categorical column '{col}' not found in dataset.")
 
     # --- Define Features including NEW Time Features ---
+    # *** Use train_type here ***
     feature_cols = [
         "track_status",
         "weather_impact",
-        "train_type",
+        "train_type",           # CORRECTED NAME
         "priority_level",
         "coach_length",
         "max_speed_kmph",
-        "departure_hour",       # NEW
-        "departure_dayofweek"   # NEW
+        "departure_hour",
+        "departure_dayofweek"
     ]
 
     missing_features = [col for col in feature_cols if col not in df.columns]
@@ -94,90 +87,40 @@ def train_and_evaluate():
     y_class = df["delayed_flag"]
     y_reg = df["delay_minutes"]
 
-    # --- UPDATED Preprocessing Setup ---
-    # Original numeric features
+    # --- Preprocessing Setup ---
     numeric_cols = ["priority_level", "coach_length", "max_speed_kmph"]
-    # Original categorical features + DayOfWeek
-    categorical_cols = ["track_status", "weather_impact", "train_type", "departure_dayofweek"]
-    # Hour feature for cyclical encoding
-    cyclical_cols = ["departure_hour"]
+    # *** Use train_type here *** (Treat hour and day as categorical)
+    categorical_cols = ["track_status", "weather_impact", "train_type", "departure_hour", "departure_dayofweek"]
 
-    # Ensure columns exist in X
     actual_numeric_cols = [col for col in numeric_cols if col in X.columns]
     actual_categorical_cols = [col for col in categorical_cols if col in X.columns]
-    actual_cyclical_cols = [col for col in cyclical_cols if col in X.columns]
 
-    # Pipeline for standard numeric features
     numeric_pipe = Pipeline([
         ("imputer", SimpleImputer(strategy="median")),
-        ("scaler", StandardScaler()) # Scale numeric features
+        ("scaler", StandardScaler())
     ])
-
-    # Pipeline for standard categorical features
     categorical_pipe = Pipeline([
         ("imputer", SimpleImputer(strategy="most_frequent")),
         ("onehot", OneHotEncoder(handle_unknown="ignore", sparse_output=False))
     ])
 
-    # Pipeline for cyclical hour feature (0-23 hours cycle)
-    cyclical_pipe = Pipeline([
-        ('sin', sin_transformer(24)),
-        ('cos', cos_transformer(24))
-        # No scaler needed as sin/cos are already in [-1, 1] range
-    ])
-
-    # Combine transformers
     transformers_list = []
     if actual_numeric_cols:
         transformers_list.append(("num", numeric_pipe, actual_numeric_cols))
     if actual_categorical_cols:
         transformers_list.append(("cat", categorical_pipe, actual_categorical_cols))
-    if actual_cyclical_cols:
-        # Apply cyclical transform directly to the hour column
-        # Note: Needs adjustment if SimpleImputer is required for hour
-        preprocessor_hour_only = Pipeline([('imputer', SimpleImputer(strategy='median')), ('scaler', StandardScaler())]) # Impute and scale hour first if needed
-        hour_processor = Pipeline([
-             ('impute_scale', preprocessor_hour_only), # Preprocess hour like other numerics first
-             ('cyclical', cyclical_pipe) # Then apply sin/cos
-             # Update: Applying sin/cos directly might be better. Let's try that.
-        ])
 
-        # Simpler cyclical pipe - apply directly after imputation
-        hour_imputer = SimpleImputer(strategy='median')
-        hour_cyclical_processor = Pipeline([
-            ('imputer', hour_imputer),
-            ('sin', sin_transformer(24)),
-            ('cos', cos_transformer(24)),
-        ])
-        # Need to handle the output shape of FunctionTransformer for ColumnTransformer...
-        # Let's treat HOUR as CATEGORICAL for simplicity first, then refine if needed.
+    if not transformers_list:
+        logging.error("[ERROR] No features selected for preprocessing. Aborting.")
+        return
 
-        # --- REVISED Simpler Preprocessing ---
-        numeric_cols_revised = ["priority_level", "coach_length", "max_speed_kmph"]
-        # Treat hour and day as categorical
-        categorical_cols_revised = ["track_status", "weather_impact", "train_type", "departure_hour", "departure_dayofweek"]
+    preprocessor = ColumnTransformer(
+        transformers=transformers_list,
+        remainder="drop",
+        sparse_threshold=0
+    )
+    logging.info("[INFO] Preprocessing setup complete.")
 
-        actual_numeric_cols = [col for col in numeric_cols_revised if col in X.columns]
-        actual_categorical_cols = [col for col in categorical_cols_revised if col in X.columns]
-
-        numeric_pipe_revised = Pipeline([
-            ("imputer", SimpleImputer(strategy="median")),
-            ("scaler", StandardScaler())
-        ])
-        categorical_pipe_revised = Pipeline([
-            ("imputer", SimpleImputer(strategy="most_frequent")),
-            ("onehot", OneHotEncoder(handle_unknown="ignore", sparse_output=False))
-        ])
-
-        preprocessor = ColumnTransformer(
-            transformers=[
-                ("num", numeric_pipe_revised, actual_numeric_cols),
-                ("cat", categorical_pipe_revised, actual_categorical_cols),
-            ],
-            remainder="drop",
-            sparse_threshold=0
-        )
-        logging.info("[INFO] Preprocessing setup complete (treating hour/day as categorical).")
 
     # --- Train/Test Split ---
     try:
@@ -198,13 +141,13 @@ def train_and_evaluate():
     logging.info(y_class_test.value_counts())
 
 
-    # === Classifier using LightGBM (Keep as before) ===
+    # === Classifier using LightGBM ===
     logging.info("[INFO] Setting up LGBM Classifier pipeline...")
     clf_pipe = Pipeline([
         ("pre", preprocessor),
         ("clf", lgb.LGBMClassifier(random_state=42, n_jobs=-1))
     ])
-    clf_param_grid_lgbm = { # Using previous best params as a starting point + variations
+    clf_param_grid_lgbm = {
         'clf__n_estimators': [100, 200],
         'clf__learning_rate': [0.05, 0.1],
         'clf__num_leaves': [20, 31],
@@ -213,7 +156,7 @@ def train_and_evaluate():
         'clf__reg_lambda': [0.5, 1.0]
     }
     clf_search = RandomizedSearchCV(
-        clf_pipe, clf_param_grid_lgbm, n_iter=10, cv=3, scoring="f1_weighted", # Reduced n_iter for speed
+        clf_pipe, clf_param_grid_lgbm, n_iter=10, cv=3, scoring="f1_weighted",
         random_state=42, n_jobs=-1, verbose=1
     )
     logging.info("[INFO] Tuning LGBM classifier...")
@@ -226,13 +169,13 @@ def train_and_evaluate():
         return
 
 
-    # === Regressor using XGBoost (Keep as before, but uses new features via preprocessor) ===
+    # === Regressor using XGBoost ===
     logging.info("[INFO] Setting up XGBoost Regressor pipeline...")
     reg_pipe = Pipeline([
         ("pre", preprocessor),
         ("reg", xgb.XGBRegressor(random_state=42, n_jobs=-1, objective='reg:squarederror'))
     ])
-    reg_param_grid_xgb = { # Using previous best params as starting point + variations
+    reg_param_grid_xgb = {
         'reg__n_estimators': [100, 200],
         'reg__learning_rate': [0.05, 0.1],
         'reg__max_depth': [3, 6],
@@ -242,7 +185,7 @@ def train_and_evaluate():
         'reg__reg_lambda': [0.5, 1.0]
     }
     reg_search = RandomizedSearchCV(
-        reg_pipe, reg_param_grid_xgb, n_iter=10, cv=3, scoring="neg_root_mean_squared_error", # Reduced n_iter
+        reg_pipe, reg_param_grid_xgb, n_iter=10, cv=3, scoring="neg_root_mean_squared_error",
         random_state=42, n_jobs=-1, verbose=1
     )
     logging.info("[INFO] Tuning XGBoost regressor...")
@@ -279,8 +222,7 @@ def train_and_evaluate():
             y_reg_test_reg = y_reg_test[y_reg_test > 0]
             if not X_test_reg.empty:
                 y_reg_pred = reg_best.predict(X_test_reg)
-                # Ensure predictions aren't negative
-                y_reg_pred = np.maximum(0, y_reg_pred)
+                y_reg_pred = np.maximum(0, y_reg_pred) # Ensure non-negative
                 mse = mean_squared_error(y_reg_test_reg, y_reg_pred)
                 rmse = np.sqrt(mse)
                 r2 = r2_score(y_reg_test_reg, y_reg_pred)
@@ -302,11 +244,10 @@ def train_and_evaluate():
         if reg_best:
             joblib.dump(reg_best.named_steps["reg"], REGRESSOR_PATH)
         else:
-             logging.warning("[WARN] Regressor model not saved as it was not trained successfully.")
+             logging.warning("[WARN] Regressor model not saved.")
              if os.path.exists(REGRESSOR_PATH):
                   try: os.remove(REGRESSOR_PATH)
-                  except OSError: pass # Ignore if file cannot be removed
-        # Save the specific preprocessor fitted within the best classifier pipeline
+                  except OSError: pass
         joblib.dump(clf_best.named_steps["pre"], PREPROCESSOR_PATH)
 
         logging.info("[INFO] Saved models:")

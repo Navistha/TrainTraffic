@@ -11,7 +11,7 @@ from django.db.models import Q
 
 from .models import Decision, AIRecommendation, DecisionType, ConflictDetection
 from core.models import Train, Track, Station, RealTimeDelay
-from ml.predict import predict_delay
+#from ml.predict import predict_delay
 from .explainable_ai import explainable_ai
 import pandas as pd
 import joblib
