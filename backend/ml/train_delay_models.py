@@ -1,29 +1,7 @@
-import os
 import pandas as pd
 import numpy as np
-import joblib
-import logging
-from datetime import datetime
-import warnings
+import os
 
-# --- ML Imports ---
-from sklearn.model_selection import train_test_split, RandomizedSearchCV
-from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
-from sklearn.compose import ColumnTransformer
-from sklearn.pipeline import Pipeline
-from sklearn.metrics import accuracy_score, f1_score, mean_squared_error, r2_score, classification_report
-import lightgbm as lgb
-import xgboost as xgb
-
-# --- Filter Warnings ---
-warnings.filterwarnings("ignore", message="No further splits with positive gain, best gain: -inf", category=UserWarning)
-warnings.filterwarnings("ignore", message="X does not have valid feature names, but.*was fitted with feature names", category=UserWarning)
-
-# --- Setup Logging ---
-logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
-
-# --- Define Paths ---
 try:
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 except NameError:
@@ -31,263 +9,203 @@ except NameError:
 
 # Use the original data file name (overwritten by the generation script)
 DATA_PATH = os.path.join(BASE_DIR, "datasets", "train_delay_data.csv")
+
+
+# Load dataset (replace 'train_data.csv' with your actual filename)
+df = pd.read_csv(DATA_PATH)
+
+# Drop ID and datetime columns not useful for model learning
+df = df.drop(columns=["train_id", "actual_arrival_time", "actual_departure_time"])
+
+# Encode categorical columns
+cat_cols = ["from_station", "to_station", "track_status", "weather_impact", "train_type"]
+df = pd.get_dummies(df, columns=cat_cols, drop_first=True)
+
+# Separate classification and regression targets
+X = df.drop(columns=["delay_minutes", "delayed_flag"])
+y_class = df["delayed_flag"]           # Classifier target
+y_reg = df["delay_minutes"]            # Regressor target
+
+from sklearn.model_selection import train_test_split
+
+X_train_c, X_test_c, y_train_c, y_test_c = train_test_split(X, y_class, test_size=0.2, random_state=42, stratify=y_class)
+X_train_r, X_test_r, y_train_r, y_test_r = train_test_split(X, y_reg, test_size=0.2, random_state=42)
+
+
+from sklearn.preprocessing import StandardScaler
+
+scaler = StandardScaler()
+X_train_c = scaler.fit_transform(X_train_c)
+X_test_c = scaler.transform(X_test_c)
+X_train_r = scaler.fit_transform(X_train_r)
+X_test_r = scaler.transform(X_test_r)
+
+
+from xgboost import XGBClassifier
+from sklearn.model_selection import GridSearchCV
+from sklearn.metrics import accuracy_score, classification_report
+
+param_grid_c = {
+    'n_estimators': [100, 200],
+    'max_depth': [3, 5],
+    'learning_rate': [0.05, 0.1],
+    'subsample': [0.8, 1.0]
+}
+
+clf = XGBClassifier(use_label_encoder=False, eval_metric='logloss', random_state=42)
+
+grid_c = GridSearchCV(clf, param_grid_c, cv=3, scoring='accuracy', n_jobs=-1, verbose=2)
+grid_c.fit(X_train_c, y_train_c)
+
+print("Best Parameters for Classifier:", grid_c.best_params_)
+best_clf = grid_c.best_estimator_
+
+# Evaluate Classifier
+y_pred_c = best_clf.predict(X_test_c)
+print(f"Accuracy: {accuracy_score(y_test_c, y_pred_c)*100:.2f}%")
+print("\nClassification Report:\n", classification_report(y_test_c, y_pred_c))
+
+
+
+
+import xgboost as xgb
+from xgboost import XGBRegressor
+from sklearn.model_selection import GridSearchCV
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+import numpy as np
+import pandas as pd
+from time import time
+
+print(f"XGBoost version: {xgb.__version__}")
+
+#  Check GPU Support (Modern way)
+try:
+    test_model = XGBRegressor(tree_method="hist", device="cuda")
+    test_model.fit([[0, 0], [1, 1]], [0, 1])
+    gpu_supported = True
+    print("GPU training enabled (device='cuda').")
+except Exception as e:
+    gpu_supported = False
+    print(" GPU not supported — using CPU.\n", e)
+
+#  Convert to NumPy
+X_train_np = np.array(X_train_r)
+y_train_np = np.array(y_train_r)
+y_train_flag_np = np.array(y_train_c)
+
+#  Filter only delayed trains
+mask_train_delayed = y_train_flag_np == 1
+X_train_delayed = X_train_np[mask_train_delayed]
+y_train_delayed = y_train_np[mask_train_delayed]
+
+print(f" Training samples (delayed only): {len(X_train_delayed)}")
+
+# Define Regressor (GPU-ready)
+reg = XGBRegressor(
+    random_state=42,
+    tree_method='hist',        
+    device='cuda' if gpu_supported else 'cpu',
+    predictor='gpu_predictor' if gpu_supported else 'auto',
+    objective='reg:squarederror',
+    verbosity=0
+)
+
+param_grid_r = {
+    'n_estimators': [300],
+    'max_depth': [3],
+    'learning_rate': [0.01, 0.05],
+    'min_child_weight': [1],
+    'subsample': [0.8],
+    'colsample_bytree': [0.8],
+    'reg_lambda': [1],
+    'reg_alpha': [0],
+    'gamma': [0, 0.1]
+}
+
+
+
+#  Grid Search
+grid_r = GridSearchCV(
+    reg,
+    param_grid=param_grid_r,
+    cv=3,
+    scoring='r2',
+    n_jobs=2,         
+    verbose=2
+)
+
+print("\n Starting Grid Search for Regressor (delayed trains only)...")
+t0 = time()
+grid_r.fit(X_train_delayed, y_train_delayed)
+print(f" Grid search completed in {round(time() - t0, 2)} sec.")
+
+#  Best model
+best_reg = grid_r.best_estimator_
+print("\n Best Parameters for Regressor:", grid_r.best_params_)
+print(f"Best Cross-Validation R²: {grid_r.best_score_:.3f}")
+
+#  Evaluate on delayed subset of test data
+mask_test_delayed = np.array(y_test_c) == 1
+X_test_delayed = np.array(X_test_r)[mask_test_delayed]
+y_test_delayed = np.array(y_test_r)[mask_test_delayed]
+
+y_pred_r = best_reg.predict(X_test_delayed)
+
+#  Compute metrics
+mae = mean_absolute_error(y_test_delayed, y_pred_r)
+mse = mean_squared_error(y_test_delayed, y_pred_r)
+rmse = np.sqrt(mse)
+r2 = r2_score(y_test_delayed, y_pred_r)
+
+print("\n Regressor Evaluation Metrics (Only Delayed Trains):")
+print(f"MAE : {mae:.2f}")
+print(f"MSE : {mse:.2f}")
+print(f"RMSE: {rmse:.2f}")
+print(f"R²  : {r2:.3f}")
+
+
+# Final combined output
+final_predictions = []
+for i, flag in enumerate(y_pred_c):
+    if flag == 1:
+        delay = best_reg.predict(X_test_r[i].reshape(1, -1))[0]
+    else:
+        delay = 0
+    final_predictions.append(delay)
+
+final_df = pd.DataFrame({
+    "Actual_Delayed_Flag": y_test_c.values,
+    "Predicted_Delayed_Flag": y_pred_c,
+    "Predicted_Delay_Minutes": np.round(final_predictions, 2)
+})
+
+print("\n Final Combined Predictions (sample):")
+print(final_df.head(10))
+
+
+import joblib
+
 OUTPUT_DIR = os.path.join(BASE_DIR, "ml")
 
+# Ensure folder exists (but don’t recreate)
+if not os.path.exists(OUTPUT_DIR):
+    raise FileNotFoundError(f"ML folder not found: {OUTPUT_DIR}")
+
 CLASSIFIER_PATH = os.path.join(OUTPUT_DIR, "delay_classifier.pkl")
-REGRESSOR_PATH = os.path.join(OUTPUT_DIR, "delay_regressor.pkl")
-PREPROCESSOR_PATH = os.path.join(OUTPUT_DIR, "delay_preprocessor.pkl")
+REGRESSOR_PATH  = os.path.join(OUTPUT_DIR, "delay_regressor.pkl")
+SCALER_PATH     = os.path.join(OUTPUT_DIR, "scaler.pkl")
 
-# --- Main Training Function ---
-def train_and_evaluate():
-    logging.info("[INFO] Loading dataset from %s...", DATA_PATH)
-    try:
-        df = pd.read_csv(DATA_PATH)
-        # Ensure correct dtypes after loading
-        if 'departure_hour' in df.columns: df['departure_hour'] = df['departure_hour'].astype(float)
-        if 'departure_dayofweek' in df.columns: df['departure_dayofweek'] = df['departure_dayofweek'].astype(str)
-    except FileNotFoundError:
-        logging.error("[ERROR] Dataset not found at %s. Please generate it first.", DATA_PATH)
-        return
-    except Exception as e:
-        logging.error("[ERROR] Failed to load or process dataset: %s", e)
-        return
+# Overwrite existing model files if present
+for path in [CLASSIFIER_PATH, REGRESSOR_PATH, SCALER_PATH]:
+    if os.path.exists(path):
+        os.remove(path)
 
-    # Clean categorical columns
-    # *** Use train_type here ***
-    categorical_cols_to_clean = ["weather_impact", "track_status", "train_type", "departure_dayofweek"]
-    for col in categorical_cols_to_clean:
-        if col in df.columns:
-            df[col] = df[col].astype(str).str.strip().replace('nan', 'Unknown')
-        else:
-            logging.warning(f"[WARN] Expected categorical column '{col}' not found in dataset.")
+# Save models
+joblib.dump(best_clf, CLASSIFIER_PATH)
+joblib.dump(best_reg, REGRESSOR_PATH)
+joblib.dump(scaler, SCALER_PATH)
 
-    # --- Define Features including NEW Time Features ---
-    # *** Use train_type here ***
-    feature_cols = [
-        "track_status",
-        "weather_impact",
-        "train_type",           # CORRECTED NAME
-        "priority_level",
-        "coach_length",
-        "max_speed_kmph",
-        "departure_hour",
-        "departure_dayofweek"
-    ]
-
-    missing_features = [col for col in feature_cols if col not in df.columns]
-    if missing_features:
-        logging.error(f"[ERROR] Missing required feature columns: {missing_features}. Aborting.")
-        return
-
-    if "delayed_flag" not in df.columns or "delay_minutes" not in df.columns:
-        logging.error("[ERROR] Missing target columns 'delayed_flag' or 'delay_minutes'. Aborting.")
-        return
-
-    X = df[feature_cols]
-    y_class = df["delayed_flag"]
-    y_reg = df["delay_minutes"]
-
-    # --- Preprocessing Setup ---
-    numeric_cols = ["priority_level", "coach_length", "max_speed_kmph"]
-    # *** Use train_type here *** (Treat hour and day as categorical)
-    categorical_cols = ["track_status", "weather_impact", "train_type", "departure_hour", "departure_dayofweek"]
-
-    actual_numeric_cols = [col for col in numeric_cols if col in X.columns]
-    actual_categorical_cols = [col for col in categorical_cols if col in X.columns]
-
-    numeric_pipe = Pipeline([
-        ("imputer", SimpleImputer(strategy="median")),
-        ("scaler", StandardScaler())
-    ])
-    categorical_pipe = Pipeline([
-        ("imputer", SimpleImputer(strategy="most_frequent")),
-        ("onehot", OneHotEncoder(handle_unknown="ignore", sparse_output=False))
-    ])
-
-    transformers_list = []
-    if actual_numeric_cols:
-        transformers_list.append(("num", numeric_pipe, actual_numeric_cols))
-    if actual_categorical_cols:
-        transformers_list.append(("cat", categorical_pipe, actual_categorical_cols))
-
-    if not transformers_list:
-        logging.error("[ERROR] No features selected for preprocessing. Aborting.")
-        return
-
-    preprocessor = ColumnTransformer(
-        transformers=transformers_list,
-        remainder="drop",
-        sparse_threshold=0
-    )
-    logging.info("[INFO] Preprocessing setup complete.")
-
-
-    # --- Train/Test Split ---
-    try:
-        X_train, X_test, y_class_train, y_class_test, y_reg_train, y_reg_test = train_test_split(
-            X, y_class, y_reg, test_size=0.2, random_state=42, stratify=y_class
-        )
-        logging.info("[INFO] Using stratified train/test split.")
-    except Exception as e:
-        logging.warning("[WARN] Stratified split failed: %s", e)
-        logging.info("[INFO] Falling back to non-stratified split.")
-        X_train, X_test, y_class_train, y_class_test, y_reg_train, y_reg_test = train_test_split(
-            X, y_class, y_reg, test_size=0.2, random_state=42
-        )
-
-    logging.info("\n[INFO] Class distribution in training set:")
-    logging.info(y_class_train.value_counts())
-    logging.info("\n[INFO] Class distribution in test set:")
-    logging.info(y_class_test.value_counts())
-
-
-    # === Classifier using LightGBM ===
-    logging.info("[INFO] Setting up LGBM Classifier pipeline...")
-    clf_pipe = Pipeline([
-        ("pre", preprocessor),
-        ("clf", lgb.LGBMClassifier(random_state=42, n_jobs=-1))
-    ])
-    clf_param_grid_lgbm = {
-        'clf__n_estimators': [100, 200],
-        'clf__learning_rate': [0.05, 0.1],
-        'clf__num_leaves': [20, 31],
-        'clf__max_depth': [10, -1],
-        'clf__reg_alpha': [0.1, 0.5],
-        'clf__reg_lambda': [0.5, 1.0]
-    }
-    clf_search = RandomizedSearchCV(
-        clf_pipe, clf_param_grid_lgbm, n_iter=10, cv=3, scoring="f1_weighted",
-        random_state=42, n_jobs=-1, verbose=1
-    )
-    logging.info("[INFO] Tuning LGBM classifier...")
-    try:
-        clf_search.fit(X_train, y_class_train)
-        clf_best = clf_search.best_estimator_
-        logging.info(f"[INFO] Best LGBM classifier params: {clf_search.best_params_}")
-    except Exception as e:
-        logging.error("[ERROR] Failed during classifier tuning: %s", e)
-        return
-
-
-    # === Regressor using XGBoost ===
-    logging.info("[INFO] Setting up XGBoost Regressor pipeline...")
-    reg_pipe = Pipeline([
-        ("pre", preprocessor),
-        ("reg", xgb.XGBRegressor(random_state=42, n_jobs=-1, objective='reg:squarederror'))
-    ])
-    reg_param_grid_xgb = {
-        'reg__n_estimators': [100, 200],
-        'reg__learning_rate': [0.05, 0.1],
-        'reg__max_depth': [3, 6],
-        'reg__subsample': [0.7, 1.0],
-        'reg__colsample_bytree': [0.7, 1.0],
-        'reg__reg_alpha': [0.5, 1.0],
-        'reg__reg_lambda': [0.5, 1.0]
-    }
-    reg_search = RandomizedSearchCV(
-        reg_pipe, reg_param_grid_xgb, n_iter=10, cv=3, scoring="neg_root_mean_squared_error",
-        random_state=42, n_jobs=-1, verbose=1
-    )
-    logging.info("[INFO] Tuning XGBoost regressor...")
-    X_train_reg = X_train[y_reg_train > 0]
-    y_reg_train_reg = y_reg_train[y_reg_train > 0]
-    reg_best = None
-    if not X_train_reg.empty:
-        try:
-            reg_search.fit(X_train_reg, y_reg_train_reg)
-            reg_best = reg_search.best_estimator_
-            logging.info(f"[INFO] Best XGBoost regressor params: {reg_search.best_params_}")
-        except Exception as e:
-            logging.error("[ERROR] Failed during XGBoost regressor tuning: %s", e)
-    else:
-        logging.warning("[WARN] No delayed samples in training data for regressor tuning.")
-
-
-    # === Evaluate Models ===
-    logging.info("\n=== Classifier Evaluation (on Test Set) ===")
-    try:
-        y_class_pred = clf_best.predict(X_test)
-        acc = accuracy_score(y_class_test, y_class_pred)
-        f1_weighted = f1_score(y_class_test, y_class_pred, average='weighted', zero_division=0)
-        logging.info(f"Accuracy: {acc:.4f}")
-        logging.info(f"Weighted F1 Score: {f1_weighted:.4f}")
-        print(classification_report(y_class_test, y_class_pred, zero_division=0))
-    except Exception as e:
-        logging.error("[ERROR] Failed during classifier evaluation: %s", e)
-
-    logging.info("\n=== Regressor Evaluation (on Test Set - Delayed Samples Only) ===")
-    if reg_best:
-        try:
-            X_test_reg = X_test[y_reg_test > 0]
-            y_reg_test_reg = y_reg_test[y_reg_test > 0]
-            if not X_test_reg.empty:
-                y_reg_pred = reg_best.predict(X_test_reg)
-                y_reg_pred = np.maximum(0, y_reg_pred) # Ensure non-negative
-                mse = mean_squared_error(y_reg_test_reg, y_reg_pred)
-                rmse = np.sqrt(mse)
-                r2 = r2_score(y_reg_test_reg, y_reg_pred)
-                logging.info(f"RMSE (on delayed test samples): {rmse:.4f}")
-                logging.info(f"R² (on delayed test samples): {r2:.4f}")
-            else:
-                logging.info("[INFO] No delayed samples in test set for regressor evaluation.")
-        except Exception as e:
-            logging.error("[ERROR] Failed during regressor evaluation: %s", e)
-    else:
-        logging.info("[INFO] Regressor was not trained or tuning failed.")
-
-
-    # === Save Models and Fitted Preprocessor ===
-    logging.info("\n[INFO] Saving models and preprocessor...")
-    try:
-        os.makedirs(OUTPUT_DIR, exist_ok=True)
-        joblib.dump(clf_best.named_steps["clf"], CLASSIFIER_PATH)
-        if reg_best:
-            joblib.dump(reg_best.named_steps["reg"], REGRESSOR_PATH)
-        else:
-             logging.warning("[WARN] Regressor model not saved.")
-             if os.path.exists(REGRESSOR_PATH):
-                  try: os.remove(REGRESSOR_PATH)
-                  except OSError: pass
-        joblib.dump(clf_best.named_steps["pre"], PREPROCESSOR_PATH)
-
-        logging.info("[INFO] Saved models:")
-        logging.info(f" - Classifier:   {CLASSIFIER_PATH}")
-        if reg_best:
-            logging.info(f" - Regressor:    {REGRESSOR_PATH}")
-        logging.info(f" - Preprocessor: {PREPROCESSOR_PATH}")
-    except Exception as e:
-        logging.error("[ERROR] Failed to save models: %s", e)
-
-
-    # === Feature Importances (Using LGBM Classifier's method) ===
-    logging.info("\n[INFO] Feature importances (LGBM Classifier):")
-    try:
-        importances = clf_best.named_steps["clf"].feature_importances_
-        preprocessor_fitted = clf_best.named_steps["pre"]
-        try:
-             feature_names_raw = list(preprocessor_fitted.get_feature_names_out())
-             feature_names = [name.split('__')[-1] for name in feature_names_raw]
-        except AttributeError:
-             logging.warning("[WARN] Using fallback method for feature names.")
-             numeric_feature_names = actual_numeric_cols
-             categorical_feature_names = list(preprocessor_fitted.transformers_[1][1].named_steps["onehot"].get_feature_names_out(actual_categorical_cols))
-             feature_names = numeric_feature_names + categorical_feature_names
-
-        if len(importances) == len(feature_names):
-             feature_importance_dict = dict(zip(feature_names, importances))
-             sorted_features = sorted(feature_importance_dict.items(), key=lambda item: item[1], reverse=True)
-             for name, imp in sorted_features:
-                  print(f"{name}: {imp}")
-        else:
-             logging.warning(f"[WARN] Mismatch between importance count ({len(importances)}) and feature name count ({len(feature_names)}).")
-             logging.warning("Importances: %s", importances)
-             logging.warning("Feature Names: %s", feature_names)
-    except Exception as e:
-        logging.error("[ERROR] Failed to calculate or display feature importances: %s", e)
-
-# --- Run the training ---
-if __name__ == "__main__":
-    start_time = datetime.now()
-    train_and_evaluate()
-    end_time = datetime.now()
-    logging.info(f"\n[INFO] Training script finished in {end_time - start_time}")
+print(f"\n Models saved successfully in: {OUTPUT_DIR}")
+print(f" - Classifier: {CLASSIFIER_PATH}")
+print(f" - Regressor:  {REGRESSOR_PATH}")
+print(f" - Scaler:     {SCALER_PATH}")
