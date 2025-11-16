@@ -40,7 +40,7 @@ class FreightListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Freight
         fields = [
-            'freight_id', 'origin_name', 'destination_name', 'material_name',
+            'id', 'freight_id', 'origin_name', 'destination_name', 'material_name',
             'quantity', 'status', 'status_display', 'scheduled_departure',
             'scheduled_arrival', 'predicted_delay', 'created_at'
         ]
@@ -57,7 +57,7 @@ class FreightDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Freight
         fields = [
-            'freight_id', 'origin', 'destination', 'material_type', 'quantity',
+            'id', 'freight_id', 'origin', 'destination', 'material_type', 'quantity',
             'status', 'status_display', 'scheduled_departure', 'scheduled_arrival',
             'actual_departure', 'actual_arrival', 'predicted_delay', 
             'delay_probability', 'route_complexity', 'tracking_clicks', 

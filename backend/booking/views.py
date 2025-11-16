@@ -1,7 +1,8 @@
 from rest_framework import generics, status, viewsets, filters
-from rest_framework.decorators import api_view, action
+from rest_framework.decorators import api_view, action, permission_classes
 from rest_framework.response import Response
 from rest_framework.renderers import JSONRenderer, BrowsableAPIRenderer
+from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.db.models import Q
@@ -254,30 +255,33 @@ def book_freight(request):
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def get_freights_by_station(request):
-    """Get freights filtered by station (origin or destination)"""
-    station = request.GET.get('station')
-    
-    if not station:
-        return Response(
-            {'error': 'Please provide ?station=NAME parameter'}, 
-            status=status.HTTP_400_BAD_REQUEST
-        )
-    
-    try:
-        freights = Freight.objects.filter(
-            Q(origin__name__icontains=station) | Q(destination__name__icontains=station)
-        ).select_related('origin', 'destination', 'material_type')
-        
-        serializer = FreightListSerializer(freights, many=True)
-        return Response(serializer.data)
-        
-    except Exception as e:
-        logger.error(f"Error fetching freights by station {station}: {str(e)}")
-        return Response(
-            {'error': 'Unable to fetch freights'}, 
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
+    station_param = request.GET.get('station')
+
+    if not station_param:
+        return Response({"error": "station parameter is required"}, status=400)
+
+    # Try ID first
+    station_obj = None
+    if station_param.isdigit():
+        station_obj = Station.objects.filter(id=int(station_param)).first()
+
+    # If not found by ID, try name case-insensitive
+    if not station_obj:
+        station_obj = Station.objects.filter(name__iexact=station_param).first()
+
+    if not station_obj:
+        return Response({"error": "Station not found"}, status=404)
+
+    freights = Freight.objects.filter(origin=station_obj) | Freight.objects.filter(destination=station_obj)
+
+    if not freights.exists():
+        return Response([], status=200)
+
+    serializer = FreightListSerializer(freights, many=True)
+    return Response(serializer.data)
+
 
 
 @api_view(['GET'])
