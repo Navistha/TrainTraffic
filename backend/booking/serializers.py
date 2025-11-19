@@ -67,42 +67,26 @@ class FreightDetailSerializer(serializers.ModelSerializer):
 
 class FreightBookingSerializer(serializers.Serializer):
     """Serializer for booking a new freight"""
-    origin = serializers.CharField(max_length=100)
-    destination = serializers.CharField(max_length=100)
-    material_type = serializers.CharField(max_length=100)
-    quantity = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=0.01)
+    origin_station = serializers.PrimaryKeyRelatedField(queryset=Station.objects.all())
+    destination_station = serializers.PrimaryKeyRelatedField(queryset=Station.objects.all())
+    material = serializers.PrimaryKeyRelatedField(queryset=MaterialType.objects.all())
+    quantity = serializers.FloatField()
     scheduled_date = serializers.DateField()
-    
+
     def validate(self, data):
-        """Validate booking data"""
-        origin = data.get('origin')
-        destination = data.get('destination')
-        
-        if origin == destination:
+        """Validate basic rules"""
+
+        # Simple: IDs are passed → DRF already converts to Station objects
+        origin = data["origin_station"]
+        destination = data["destination_station"]
+
+        if origin.id == destination.id:
             raise serializers.ValidationError("Origin and destination cannot be the same.")
-        
-        # Validate that stations exist
-        try:
-            origin_station = Station.objects.get(name__iexact=origin, is_active=True)
-            destination_station = Station.objects.get(name__iexact=destination, is_active=True)
-        except Station.DoesNotExist:
-            raise serializers.ValidationError("One or both stations are invalid or inactive.")
-        
-        # Validate material type exists
-        try:
-            material = MaterialType.objects.get(name__iexact=data.get('material_type'))
-        except MaterialType.DoesNotExist:
-            raise serializers.ValidationError("Invalid material type.")
-        
-        # Validate date is not in the past
-        scheduled_date = data.get('scheduled_date')
-        if scheduled_date < datetime.now().date():
+
+        # Check date
+        if data["scheduled_date"] < datetime.now().date():
             raise serializers.ValidationError("Scheduled date cannot be in the past.")
-        
-        data['origin_station'] = origin_station
-        data['destination_station'] = destination_station
-        data['material'] = material
-        
+
         return data
 
 
