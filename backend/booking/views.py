@@ -2,7 +2,7 @@ from rest_framework import generics, status, viewsets, filters
 from rest_framework.decorators import api_view, action, permission_classes
 from rest_framework.response import Response
 from rest_framework.renderers import JSONRenderer, BrowsableAPIRenderer
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.db.models import Count, Q
@@ -10,6 +10,7 @@ from django.conf import settings
 from datetime import datetime, timedelta
 import logging
 import os
+import time
 import joblib
 import pandas as pd
 
@@ -21,7 +22,7 @@ from .serializers import (
     FreightDemandForecastRequestSerializer, FreightDemandForecastResponseSerializer,
 )
 from .ml_utils import predict_freight_delay
-from .ml_models.freight_demand_forecast import recursive_forecast
+from booking.ml_models.freight_demand_forecast import recursive_forecast
 
 # Custom renderer that keeps the browsable page but hides HTML forms
 class NoFormBrowsableAPIRenderer(BrowsableAPIRenderer):
@@ -143,40 +144,9 @@ def get_freight_statistics(request):
     return Response(stats)
 
 
-@api_view(["POST"]) 
+@api_view(["POST"])
+@permission_classes([AllowAny])
 def freight_demand_forecast(request):
-    """
-    Generate a goods + location-wise forecast of wagons required for the next N days.
-
-    Request body (optional fields):
-    - horizon_days: int (default 30)
-    - locations: [str]
-    - goods_types: [str]
-    - save_csv: bool (default False) => writes to backend/datasets/forecasts/freight_demand_forecast_next_30_days.csv
-
-    Returns JSON list of {date, location, goods_type, predicted_wagons}.
-
-    Example JSON payloads:
-    1) Minimal (defaults; 30-day horizon, no filters, no CSV saved)
-       {}
-
-    2) Save CSV too (writes to backend/datasets/forecasts/freight_demand_forecast_next_30_days.csv)
-       {
-         "save_csv": true
-       }
-
-    3) Filter by locations and goods, custom horizon
-       {
-         "horizon_days": 30,
-         "locations": ["Delhi", "Kanpur"],
-         "goods_types": ["coal", "food"],
-         "save_csv": true
-       }
-
-    Accepted values:
-    - locations: ["Delhi", "Kanpur", "Itarsi", "Mughalsarai", "Prayagraj"]
-    - goods_types: ["coal", "food", "automobile", "oil", "electronics"]
-    """
     serializer = FreightDemandForecastRequestSerializer(data=request.data)
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -190,26 +160,34 @@ def freight_demand_forecast(request):
     try:
         datasets_dir = os.path.join(settings.BASE_DIR, "datasets")
         data_csv = os.path.join(datasets_dir, "freight_demand_simulated.csv")
-        forecasts_dir = os.path.join(datasets_dir, "forecasts")
-        os.makedirs(forecasts_dir, exist_ok=True)
-        out_csv = os.path.join(forecasts_dir, "freight_demand_forecast_next_30_days.csv")
 
-        model_path = os.path.join(settings.BASE_DIR, "booking", "ml_models", "freight_demand_model.joblib")
+        model_path = os.path.join(settings.BASE_DIR, "booking", "ml_models", "freight_demand_forecast.joblib")
         if not os.path.exists(model_path):
-            return Response({"error": "Model not found. Train it first."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Model not found."}, status=status.HTTP_400_BAD_REQUEST)
         if not os.path.exists(data_csv):
-            return Response({"error": "Data not found. Generate data first."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Data not found."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Simple in-process cache to avoid reloading the large model on every request
         if not hasattr(freight_demand_forecast, '_freight_demand_artifact'):
             freight_demand_forecast._freight_demand_artifact = joblib.load(model_path)
+
         artifact = freight_demand_forecast._freight_demand_artifact
-        model = artifact["model"]
-        feature_cols = artifact["feature_cols"]
+        
+        # Handle both old (pipeline) and new (artifact dict) formats
+        if isinstance(artifact, dict):
+            model = artifact.get("model")
+            feature_cols = artifact.get("feature_cols")
+            if not model or not feature_cols:
+                return Response(
+                    {"error": "Model artifact is malformed: missing 'model' or 'feature_cols'."}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        else:
+            # Fallback for old format (direct pipeline)
+            model = artifact
+            feature_cols = ["location", "goods_type", "day_of_week", "horizon"]
 
-        hist = pd.read_csv(data_csv, parse_dates=["date"])  # date, location, goods_type, wagons_required
+        hist = pd.read_csv(data_csv, parse_dates=["date"])
 
-        # Optional filtering of history to requested locations/goods
         if locations:
             hist = hist[hist["location"].isin(locations)]
         if goods_types:
@@ -221,19 +199,28 @@ def freight_demand_forecast(request):
         preds = recursive_forecast(model, feature_cols, hist, horizon_days=horizon)
         preds = preds.sort_values(["location", "goods_type", "date"]).reset_index(drop=True)
 
+        # --------------------------
+        # SAVE FORECAST INTO /datasets/forecasts/
+        # --------------------------
         saved_path = None
         if save_csv:
+            forecasts_dir = os.path.join(settings.BASE_DIR, "datasets", "forecasts")
+            os.makedirs(forecasts_dir, exist_ok=True)
+
+            timestamp = int(time.time())
+            file_name = f"freight_demand_forecast_{timestamp}.csv"
+            out_csv = os.path.join(forecasts_dir, file_name)
+
             preds.to_csv(out_csv, index=False)
             saved_path = out_csv
 
-        resp = {
-            "results": preds.to_dict(orient="records"),
-            "saved_csv_path": saved_path,
-        }
-        return Response(resp)
+        return Response({
+            "forecast": preds.to_dict(orient="records"),
+            "saved_csv_path": saved_path
+        })
 
     except Exception as e:
-        logger.exception("Error generating freight demand forecast")
+        logger.exception("Forecast generation error")
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -249,12 +236,13 @@ class FreightViewSet(viewsets.ModelViewSet):
 
     @action(
         detail=False,
-        methods=['get', 'post'],
+        methods=['get','post'],
         url_path='forecast',
         renderer_classes=[JSONRenderer, NoFormBrowsableAPIRenderer],
         serializer_class=FreightDemandForecastRequestSerializer,
+        permission_classes=[AllowAny],
     )
-    def forecast(self, request):
+    def forecast(self, request, *args, **kwargs):
         """Freight demand forecast API mounted under the router.
         - POST /api/booking/freights/forecast/ with JSON body to run forecast
         - GET  /api/booking/freights/forecast/ returns usage examples and accepted values
@@ -276,7 +264,7 @@ class FreightViewSet(viewsets.ModelViewSet):
             }
             return Response(examples)
         # Call the API-view function with the underlying Django HttpRequest to avoid double-wrapping
-        return freight_demand_forecast(request)
+        return freight_demand_forecast.__wrapped__(request._request)
     
     def get_serializer_class(self):
         """Return appropriate serializer based on action"""
