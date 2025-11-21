@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader } from './ui/card.js';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select.js';
 import railwayLogo from '../assets/de6da6a664b190e144e4d86f4481b866fee10e67.png';
 import Captcha from '../components/ui/genCaptcha.js';
+import { showToast } from './ui/toast.js';
 
 interface LoginPageProps {
   onLogin: (role: string) => void;
@@ -35,11 +36,11 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
   const handleLogin = async () => {
     if (!govtId || !fullName || !role) {
-      alert('Please fill all fields');
+      showToast('Please fill all fields');
       return;
     }
     if (captchaInput !== generatedCaptcha) {
-      alert('CAPTCHA does not match');
+      showToast('CAPTCHA does not match');
       return;
     }
 
@@ -107,7 +108,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   await onLogin(frontendRole);
     } catch (err: any) {
       console.error('Login error', err);
-      alert('Login failed: ' + (err.message || err));
+      showToast('Login failed: ' + (err.message || err));
     } finally {
       setLoading(false);
     }

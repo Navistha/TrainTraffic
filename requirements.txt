@@ -45,4 +45,5 @@ typing-inspection
 typing_extensions
 tzdata
 uvicorn
+xgboost
 zipp

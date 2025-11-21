@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '../ui/button.js';
 import { LogoutButton } from '../LogoutButton.js';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card.js';
@@ -7,6 +7,7 @@ import { Progress } from '../ui/progress.js';
 import { AlertTriangle, CheckCircle, Clock, TrendingUp, Users, MapPin, Zap, Activity, Target } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs.js';
 import { Alert, AlertDescription } from '../ui/alert.js';
+import { showToast } from '../ui/toast.js';
 import railwayLogo from 'figma:asset/de6da6a664b190e144e4d86f4481b866fee10e67.png';
 
 export function SectionControllerDashboard() {
@@ -20,133 +21,38 @@ export function SectionControllerDashboard() {
   };
 
   const [selectedConflict, setSelectedConflict] = useState<Conflict | null>(null);
-  const [draggedTrain, setDraggedTrain] = useState<typeof trainPaths[number] | null>(null);
-  
-  const kpis = [
+  const [draggedTrain, setDraggedTrain] = useState<any | null>(null);
+
+  const [kpis, setKpis] = useState<any[]>([
     { label: 'Section Punctuality', value: 94, unit: '%', trend: '+2%', color: 'text-green-600' },
     { label: 'Avg. Delay', value: 3.2, unit: 'min', trend: '-0.8min', color: 'text-blue-600' },
     { label: 'Active Trains', value: 12, unit: '', trend: '+2', color: 'text-primary' },
     { label: 'Critical Conflicts', value: 2, unit: '', trend: '-1', color: 'text-red-600' },
-  ];
+  ]);
 
-  const trainPaths = [
-    { 
-      id: '12951', 
-      name: 'Rajdhani', 
-      from: 'NDLS', 
-      to: 'BCT', 
-      progress: 65, 
-      delay: 0, 
-      conflict: false, 
-      priority: 'High',
-      currentLocation: 'Approaching Mathura',
-      speed: 110,
-      eta: '16:45'
-    },
-    { 
-      id: '12615', 
-      name: 'GT Express', 
-      from: 'CSTM', 
-      to: 'NZM', 
-      progress: 30, 
-      delay: 15, 
-      conflict: true, 
-      priority: 'Medium',
-      currentLocation: 'Held at Agra Cantt',
-      speed: 0,
-      eta: '17:20'
-    },
-    { 
-      id: '12650', 
-      name: 'Karnataka Exp', 
-      from: 'YPR', 
-      to: 'NZM', 
-      progress: 85, 
-      delay: 5, 
-      conflict: false, 
-      priority: 'Medium',
-      currentLocation: 'Passing Faridabad',
-      speed: 95,
-      eta: '15:35'
-    },
-    { 
-      id: 'G-4521', 
-      name: 'Goods Train', 
-      from: 'GZB', 
-      to: 'TKD', 
-      progress: 20, 
-      delay: 0, 
-      conflict: true, 
-      priority: 'Low',
-      currentLocation: 'Aligarh Junction',
-      speed: 45,
-      eta: '18:15'
-    }
-  ];
+  const [trainPaths, setTrainPaths] = useState<any[]>([
+    { id: '12951', name: 'Rajdhani', from: 'NDLS', to: 'BCT', progress: 65, delay: 0, conflict: false, priority: 'High', currentLocation: 'Approaching Mathura', speed: 110, eta: '16:45' },
+    { id: '12615', name: 'GT Express', from: 'CSTM', to: 'NZM', progress: 30, delay: 15, conflict: true, priority: 'Medium', currentLocation: 'Held at Agra Cantt', speed: 0, eta: '17:20' },
+    { id: '12650', name: 'Karnataka Exp', from: 'YPR', to: 'NZM', progress: 85, delay: 5, conflict: false, priority: 'Medium', currentLocation: 'Passing Faridabad', speed: 95, eta: '15:35' },
+    { id: 'G-4521', name: 'Goods Train', from: 'GZB', to: 'TKD', progress: 20, delay: 0, conflict: true, priority: 'Low', currentLocation: 'Aligarh Junction', speed: 45, eta: '18:15' }
+  ]);
 
-  const aiRecommendations = [
-    {
-      id: 1,
-      type: 'critical',
-      title: 'Priority Conflict Resolution',
-      description: 'Regulate GT Express 12615 at Agra Cantt for 18 mins. Allow Rajdhani 12951 precedence at Mathura single line section.',
-      impact: 'Saves 12 min system-wide delay',
-      confidence: 94,
-      action: 'Regulate',
-      timeToDecide: 8,
-      affectedTrains: ['12615', '12951'],
-      estimatedSavings: '₹2.4L penalty avoidance'
-    },
-    {
-      id: 2,
-      type: 'warning',
-      title: 'Engineering Block Optimization',
-      description: 'Reschedule PWI block at KM 145-150 from 14:00-16:00 to 02:00-04:00 tomorrow when traffic is minimal.',
-      impact: 'Prevents 4 train delays',
-      confidence: 87,
-      action: 'Reschedule',
-      timeToDecide: 25,
-      affectedTrains: ['12615', '12650', 'G-4521', 'G-4522'],
-      estimatedSavings: '₹1.8L operational cost'
-    },
-    {
-      id: 3,
-      type: 'info',
-      title: 'Route Optimization Available',
-      description: 'Divert Goods G-4521 via alternate route through Bareilly to avoid congestion at Moradabad.',
-      impact: 'Reduces section load by 15%',
-      confidence: 76,
-      action: 'Divert',
-      timeToDecide: 45,
-      affectedTrains: ['G-4521'],
-      estimatedSavings: 'Improved fluidity'
-    }
-  ];
+  const [aiRecommendations, setAiRecommendations] = useState<any[]>([
+    { id: 1, type: 'critical', title: 'Priority Conflict Resolution', description: 'Regulate GT Express 12615 at Agra Cantt for 18 mins. Allow Rajdhani 12951 precedence at Mathura single line section.', impact: 'Saves 12 min system-wide delay', confidence: 94, action: 'Regulate', timeToDecide: 8, affectedTrains: ['12615', '12951'], estimatedSavings: '₹2.4L penalty avoidance' },
+    { id: 2, type: 'warning', title: 'Engineering Block Optimization', description: 'Reschedule PWI block at KM 145-150 from 14:00-16:00 to 02:00-04:00 tomorrow when traffic is minimal.', impact: 'Prevents 4 train delays', confidence: 87, action: 'Reschedule', timeToDecide: 25, affectedTrains: ['12615', '12650', 'G-4521', 'G-4522'], estimatedSavings: '₹1.8L operational cost' },
+    { id: 3, type: 'info', title: 'Route Optimization Available', description: 'Divert Goods G-4521 via alternate route through Bareilly to avoid congestion at Moradabad.', impact: 'Reduces section load by 15%', confidence: 76, action: 'Divert', timeToDecide: 45, affectedTrains: ['G-4521'], estimatedSavings: 'Improved fluidity' }
+  ]);
 
-  const conflicts = [
-    {
-      id: 'C1',
-      location: 'Mathura Single Line',
-      trains: ['12951', '12615'],
-      severity: 'Critical',
-      timeToConflict: '12 mins',
-      description: 'Both trains projected to reach single line section simultaneously'
-    },
-    {
-      id: 'C2', 
-      location: 'Tundla Junction',
-      trains: ['12650', 'G-4521'],
-      severity: 'Medium',
-      timeToConflict: '45 mins',
-      description: 'Platform occupation conflict - both require same platform'
-    }
-  ];
+  const [conflicts, setConflicts] = useState<any[]>([
+    { id: 'C1', location: 'Mathura Single Line', trains: ['12951', '12615'], severity: 'Critical', timeToConflict: '12 mins', description: 'Both trains projected to reach single line section simultaneously' },
+    { id: 'C2', location: 'Tundla Junction', trains: ['12650', 'G-4521'], severity: 'Medium', timeToConflict: '45 mins', description: 'Platform occupation conflict - both require same platform' }
+  ]);
 
-  const actionLog = [
+  const [actionLog, setActionLog] = useState<any[]>([
     { time: '14:32', action: 'Regulated GT Express at Agra', result: 'Conflict avoided', operator: 'System' },
     { time: '14:28', action: 'Granted precedence to Rajdhani', result: 'On schedule', operator: 'P. Sharma' },
-    { time: '14:15', action: 'Diverted Goods via alternate route', result: 'Traffic optimized', operator: 'System' },
-  ];
+    { time: '14:15', action: 'Diverted Goods via alternate route', result: 'Traffic optimized', operator: 'System' }
+  ]);
 
   type AIRecommendation = {
     id: number;
@@ -161,13 +67,18 @@ export function SectionControllerDashboard() {
     estimatedSavings: string;
   };
 
+  // Using global showToast (mounted by ToastHost in main.tsx)
+
   const executeRecommendation = (rec: AIRecommendation) => {
-    alert(`Executing: ${rec.title}\nAction: ${rec.action}\nEstimated Impact: ${rec.impact}`);
-    // In real app, this would dispatch the actual control orders
+    // Simulate executing and add to action log
+    showToast(`Executing: ${rec.title}`);
+    setAiRecommendations((prev) => prev.filter((r) => r.id !== rec.id));
+    setActionLog((prev) => [{ time: new Date().toLocaleTimeString(), action: `Executed: ${rec.title}`, result: 'Applied', operator: 'System' }, ...prev].slice(0, 20));
   };
 
   const simulateRecommendation = (rec: AIRecommendation) => {
-    alert(`Simulation Results:\n- Impact: ${rec.impact}\n- Confidence: ${rec.confidence}%\n- Affected Trains: ${rec.affectedTrains.join(', ')}\n- Savings: ${rec.estimatedSavings}`);
+    showToast(`Simulation: ${rec.title} — Confidence ${rec.confidence}%`);
+    setActionLog((prev) => [{ time: new Date().toLocaleTimeString(), action: `Simulated: ${rec.title}`, result: `Confidence ${rec.confidence}%`, operator: 'System' }, ...prev].slice(0, 20));
   };
 
   const handleDragStart = (train: typeof trainPaths[number]) => {
@@ -175,11 +86,41 @@ export function SectionControllerDashboard() {
   };
 
   const handlePriorityChange = (trainId: string, newPriority: string) => {
-    alert(`Priority changed for ${trainId} to ${newPriority}. Re-calculating optimal paths...`);
+    setTrainPaths((prev) => prev.map((t) => t.id === trainId ? { ...t, priority: newPriority } : t));
+    showToast(`Priority changed for ${trainId} to ${newPriority}`);
+    setActionLog((prev) => [{ time: new Date().toLocaleTimeString(), action: `Priority change for ${trainId} -> ${newPriority}`, result: 'Updated locally', operator: 'User' }, ...prev].slice(0, 20));
+  };
+
+  const handleResolveConflict = (conflict: Conflict) => {
+    showToast(`Resolving conflict ${conflict.id} at ${conflict.location}`);
+    // remove conflict from list
+    setConflicts((prev) => prev.filter((c) => c.id !== conflict.id));
+    setSelectedConflict(null);
+    // update KPI if critical
+    if (conflict.severity === 'Critical') {
+      setKpis((prev) => prev.map((k) => k.label === 'Critical Conflicts' ? { ...k, value: Math.max(0, (k.value || 0) - 1) } : k));
+    }
+    setActionLog((prev) => [{ time: new Date().toLocaleTimeString(), action: `Resolved conflict ${conflict.id} at ${conflict.location}`, result: 'Resolved', operator: 'User' }, ...prev].slice(0,20));
+  };
+
+  const simulateBlockImpact = () => {
+    showToast('Simulating block impact...');
+    setActionLog((prev) => [{ time: new Date().toLocaleTimeString(), action: 'Simulated engineering block impact (KM 145-150)', result: 'Estimated delays shown', operator: 'User' }, ...prev].slice(0,20));
+  };
+
+  const approveBlock = () => {
+    showToast('Engineering block approved');
+    setActionLog((prev) => [{ time: new Date().toLocaleTimeString(), action: 'Approved PWI block KM 145-150', result: 'Block scheduled', operator: 'User' }, ...prev].slice(0,20));
+  };
+
+  const rejectBlock = () => {
+    showToast('Engineering block rejected');
+    setActionLog((prev) => [{ time: new Date().toLocaleTimeString(), action: 'Rejected PWI block KM 145-150', result: 'No block scheduled', operator: 'User' }, ...prev].slice(0,20));
   };
 
   return (
     <div className="min-h-screen bg-background">
+      {/* global ToastHost mounted in `main.tsx` handles toasts */}
       {/* Header */}
       <div className="bg-white border-b shadow-sm">
         <div className="flex items-center justify-between p-4">
@@ -432,7 +373,12 @@ export function SectionControllerDashboard() {
                         <Button 
                           size="sm" 
                           variant="outline" 
-                          onClick={() => alert('Recommendation dismissed')}
+                          onClick={() => {
+                            // remove recommendation
+                            setAiRecommendations((prev) => prev.filter((r) => r.id !== rec.id));
+                            showToast(`Dismissed: ${rec.title}`);
+                            setActionLog((prev) => [{ time: new Date().toLocaleTimeString(), action: `Dismissed: ${rec.title}`, result: 'Dismissed', operator: 'User' }, ...prev].slice(0,20));
+                          }}
                         >
                           Dismiss
                         </Button>
@@ -502,7 +448,7 @@ export function SectionControllerDashboard() {
                     <p className="text-sm text-muted-foreground">{conflict.description}</p>
                     <Button 
                       className="w-full bg-red-600 hover:bg-red-700"
-                      onClick={() => setSelectedConflict(conflict)}
+                      onClick={() => handleResolveConflict(conflict)}
                     >
                       Resolve Conflict
                     </Button>
@@ -530,13 +476,13 @@ export function SectionControllerDashboard() {
                         <p className="text-sm text-muted-foreground">Rail renewal work - Track Manager: S. Yadav</p>
                       </div>
                       <div className="flex space-x-2">
-                        <Button size="sm" variant="outline">
+                        <Button size="sm" variant="outline" onClick={simulateBlockImpact}>
                           Simulate Impact
                         </Button>
-                        <Button size="sm" className="bg-green-600">
+                        <Button size="sm" className="bg-green-600" onClick={approveBlock}>
                           Approve
                         </Button>
-                        <Button size="sm" variant="destructive">
+                        <Button size="sm" variant="destructive" onClick={rejectBlock}>
                           Reject
                         </Button>
                       </div>

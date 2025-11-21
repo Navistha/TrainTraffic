@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Button } from '../ui/button.js';
 import { LogoutButton } from '../LogoutButton.js';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card.js';
@@ -6,6 +6,8 @@ import { Badge } from '../ui/badge.js';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs.js';
 import { Progress } from '../ui/progress.js';
 import { Alert, AlertDescription } from '../ui/alert.js';
+import { showToast } from '../ui/toast.js';
+import ConfirmModal from '../ui/confirm.js';
 import { Truck, Package, MapPin, Calendar, Clock, TrendingUp, AlertTriangle, Target, Zap } from 'lucide-react';
 import railwayLogo from 'figma:asset/de6da6a664b190e144e4d86f4481b866fee10e67.png';
 
@@ -201,15 +203,74 @@ export function FreightOperatorDashboard() {
     .slice(0, 3) : [];
 
   const handleSmartMatch = (indent: Indent, wagons: WagonSource) => {
-    alert(`SMART ALLOTMENT CREATED\n\nIndent: ${indent.id} - ${indent.commodity}\nWagons: ${wagons.count} x ${wagons.type} from ${wagons.location}\nEmpty Run Cost: ${wagons.emptyRunCost}\nMatch Score: ${wagons.matchScore}%\n\nSupply order dispatched to Section Controller.`);
+    showToast(`SMART ALLOTMENT CREATED\n\nIndent: ${indent.id} - ${indent.commodity}\nWagons: ${wagons.count} x ${wagons.type} from ${wagons.location}\nEmpty Run Cost: ${wagons.emptyRunCost}\nMatch Score: ${wagons.matchScore}%\n\nSupply order dispatched to Section Controller.`);
   };
 
   const handleManualAllot = (indent: Indent, wagons: WagonSource) => {
-    alert(`Manual allotment created for ${indent.commodity} using ${wagons.count} wagons from ${wagons.location}`);
+    showToast(`Manual allotment created for ${indent.commodity} using ${wagons.count} wagons from ${wagons.location}`);
+  };
+
+  // Action log + confirmation state for anchored popovers
+  const [actionLog, setActionLog] = useState<any[]>([{ time: new Date().toLocaleTimeString(), action: 'Freight Operator opened dashboard', result: 'Ready', operator: 'User' }]);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmTitle, setConfirmTitle] = useState<string | undefined>(undefined);
+  const [confirmMessage, setConfirmMessage] = useState<string | undefined>(undefined);
+  const [confirmAction, setConfirmAction] = useState<(() => void) | null>(null);
+  const [confirmAnchor, setConfirmAnchor] = useState<DOMRect | null>(null);
+
+  const showConfirm = (title: string, message: string, onConfirm: () => void, anchorRect?: DOMRect | null) => {
+    setConfirmTitle(title);
+    setConfirmMessage(message);
+    setConfirmAction(() => onConfirm);
+    setConfirmAnchor(anchorRect ?? null);
+    setConfirmOpen(true);
+  };
+
+  const closeConfirm = () => {
+    setConfirmOpen(false);
+    setConfirmAction(null);
+    setConfirmTitle(undefined);
+    setConfirmMessage(undefined);
+    setConfirmAnchor(null);
+  };
+
+  // Wrapped handlers that use confirmation before performing actions
+  const confirmSmartMatch = (indent: Indent, wagons: WagonSource, anchorRect?: DOMRect | null) => {
+    showConfirm(
+      'Confirm Smart Allotment',
+      `Create allotment for ${indent.id} - ${indent.commodity} using ${wagons.count} x ${wagons.type} from ${wagons.location}?`,
+      () => {
+        const msg = `SMART ALLOTMENT CREATED - ${indent.id} assigned ${wagons.count} ${wagons.type} from ${wagons.location}`;
+        showToast(msg);
+        setActionLog(prev => [{ time: new Date().toLocaleTimeString(), action: `Smart Allot ${indent.id}`, result: msg, operator: localStorage.getItem('userName') || 'User' }, ...prev]);
+      },
+      anchorRect
+    );
+  };
+
+  const confirmManualAllot = (indent: Indent, wagons: WagonSource, anchorRect?: DOMRect | null) => {
+    showConfirm(
+      'Confirm Manual Allotment',
+      `Manually allot ${wagons.count} x ${wagons.type} from ${wagons.location} to ${indent.id}?`,
+      () => {
+        const msg = `Manual allotment created for ${indent.id} using ${wagons.count} wagons from ${wagons.location}`;
+        showToast(msg);
+        setActionLog(prev => [{ time: new Date().toLocaleTimeString(), action: `Manual Allot ${indent.id}`, result: msg, operator: localStorage.getItem('userName') || 'User' }, ...prev]);
+      },
+      anchorRect
+    );
   };
 
   return (
     <div className="min-h-screen bg-background">
+      <ConfirmModal
+        open={confirmOpen}
+        title={confirmTitle ?? ''}
+        message={confirmMessage ?? ''}
+        anchorRect={confirmAnchor ?? null}
+        onConfirm={() => { if (confirmAction) { confirmAction(); } closeConfirm(); }}
+        onCancel={closeConfirm}
+      />
       {/* Header */}
       <div className="bg-white border-b shadow-sm">
         <div className="flex items-center justify-between p-4">
@@ -382,7 +443,10 @@ export function FreightOperatorDashboard() {
                                 <Button 
                                   size="sm"
                                   className="bg-green-600 hover:bg-green-700"
-                                  onClick={() => handleSmartMatch(selectedIndent, wagon)}
+                                  onClick={(e: React.MouseEvent<HTMLElement>) => {
+                                    e.stopPropagation();
+                                    confirmSmartMatch(selectedIndent, wagon, (e.currentTarget as HTMLElement).getBoundingClientRect());
+                                  }}
                                 >
                                   Smart Allot
                                 </Button>
@@ -454,7 +518,7 @@ export function FreightOperatorDashboard() {
                               variant="outline"
                               onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                                 e.stopPropagation();
-                                handleManualAllot(selectedIndent, wagon);
+                                confirmManualAllot(selectedIndent, wagon, (e.currentTarget as HTMLElement).getBoundingClientRect());
                               }}
                             >
                               Manual Allot
@@ -479,7 +543,7 @@ export function FreightOperatorDashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-3 gap-6 p-4 bg-blue-50 rounded-lg">
+                    <div className="grid grid-cols-3 gap-6 p-4 bg-blue-50 rounded-lg">
                   <div>
                     <h4 className="font-medium mb-2">Demand Details</h4>
                     <p><strong>{selectedIndent.id}</strong> - {selectedIndent.commodity}</p>
@@ -498,7 +562,7 @@ export function FreightOperatorDashboard() {
                     <p>Penalty Savings: {selectedIndent.penaltyRisk}</p>
                     <Button 
                       className="mt-2 w-full bg-green-600 hover:bg-green-700"
-                      onClick={() => handleSmartMatch(selectedIndent, selectedWagonSource)}
+                      onClick={(e: React.MouseEvent<HTMLElement>) => confirmSmartMatch(selectedIndent, selectedWagonSource, (e.currentTarget as HTMLElement).getBoundingClientRect())}
                     >
                       Confirm Allotment
                     </Button>
@@ -672,6 +736,25 @@ export function FreightOperatorDashboard() {
           </div>
         </TabsContent>
       </Tabs>
+      {/* Recent Actions */}
+      <div className="p-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent Actions</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2 text-sm">
+              {actionLog.length === 0 && <div className="text-muted-foreground">No recent actions</div>}
+              {actionLog.map((a, idx) => (
+                <div key={idx} className="p-2 border rounded bg-white">
+                  <div className="font-medium">{a.action}</div>
+                  <div className="text-muted-foreground text-xs">{a.time} — {a.result}</div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

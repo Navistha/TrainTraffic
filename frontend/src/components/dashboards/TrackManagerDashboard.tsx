@@ -7,6 +7,8 @@ import { Checkbox } from '../ui/checkbox.js';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs.js';
 import { Progress } from '../ui/progress.js';
 import { Alert, AlertDescription } from '../ui/alert.js';
+import { showToast } from '../ui/toast.js';
+import ConfirmModal from '../ui/confirm.js';
 import { Map, CheckSquare, AlertTriangle, Camera, Calendar, MapPin, Wrench, Clock, Target, Zap } from 'lucide-react';
 import railwayLogo from 'figma:asset/de6da6a664b190e144e4d86f4481b866fee10e67.png';
 
@@ -23,6 +25,27 @@ export function TrackManagerDashboard() {
   const [selectedSection, setSelectedSection] = useState<TrackSection | null>(null);
   const [taskProgress, setTaskProgress] = useState<Record<string, boolean>>({});
   const [photoCount, setPhotoCount] = useState(0);
+  const [actionLog, setActionLog] = useState<any[]>([
+    { time: new Date().toLocaleTimeString(), action: 'Inspector dashboard opened', result: 'Ready', operator: 'User' }
+  ]);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmTitle, setConfirmTitle] = useState<string | undefined>(undefined);
+  const [confirmMessage, setConfirmMessage] = useState<string | undefined>(undefined);
+  const [confirmAction, setConfirmAction] = useState<(() => void) | null>(null);
+
+  const showConfirm = (title: string, message: string, onConfirm: () => void) => {
+    setConfirmTitle(title);
+    setConfirmMessage(message);
+    setConfirmAction(() => onConfirm);
+    setConfirmOpen(true);
+  };
+
+  const closeConfirm = () => {
+    setConfirmOpen(false);
+    setConfirmAction(null);
+    setConfirmTitle(undefined);
+    setConfirmMessage(undefined);
+  };
 
   const trackSections = [
     { 
@@ -168,24 +191,52 @@ export function TrackManagerDashboard() {
   };
 
   const reportIncident = (type: string) => {
-    alert(`${type} reported successfully!\n\nGPS Location: Automatically captured\nPhotos: ${photoCount} attached\nTime: ${new Date().toLocaleTimeString()}\n\nAlert sent to:\n- Control Office\n- Senior PWI\n- Engineering Department`);
+    showConfirm(
+      `Report Incident: ${type}`,
+      `Are you sure you want to report the incident:\n\n${type}?\n\nThis will notify Control Office, Senior PWI and Engineering.`,
+      () => {
+        const msg = `${type} reported successfully!\n\nGPS Location: Automatically captured\nPhotos: ${photoCount} attached\nTime: ${new Date().toLocaleTimeString()}\n\nAlert sent to:\n- Control Office\n- Senior PWI\n- Engineering Department`;
+        showToast(msg);
+        setActionLog((prev) => [{ time: new Date().toLocaleTimeString(), action: `Reported incident: ${type}`, result: 'Notified teams', operator: 'Inspector' }, ...prev].slice(0, 20));
+        closeConfirm();
+      }
+    );
   };
 
   const takePhoto = (): void => {
     setPhotoCount(prev => prev + 1);
-    alert(`Photo ${photoCount + 1} captured and attached to current task/report`);
+    const cnt = photoCount + 1;
+    showToast(`Photo ${cnt} captured and attached to current task/report`);
+    setActionLog((prev) => [{ time: new Date().toLocaleTimeString(), action: `Captured photo (${cnt})`, result: 'Saved to report', operator: 'Inspector' }, ...prev].slice(0, 20));
   };
 
   const requestBlock = (section: string, duration: string): void => {
-    alert(`Engineering Block Request Submitted:\n\nSection: ${section}\nDuration: ${duration}\nJustification: Critical repair work\nTraffic Impact: Minimal during requested hours\n\nRequest sent to Section Controller for approval.`);
+    showConfirm(
+      `Request Engineering Block`,
+      `Submit engineering block request for ${section} for duration ${duration}? This will request approval from the Section Controller.`,
+      () => {
+        showToast(`Engineering Block Request Submitted:\n\nSection: ${section}\nDuration: ${duration}\nJustification: Critical repair work\nTraffic Impact: Minimal during requested hours\n\nRequest sent to Section Controller for approval.`);
+        setActionLog((prev) => [{ time: new Date().toLocaleTimeString(), action: `Requested engineering block ${section}`, result: 'Sent to Section Controller', operator: 'Inspector' }, ...prev].slice(0, 20));
+        closeConfirm();
+      }
+    );
   };
 
   const markGPS = (): void => {
-    alert(`GPS Location Marked:\nCoordinates: 28.6139° N, 77.2090° E\nKM: 52.5\nTime: ${new Date().toLocaleTimeString()}\n\nLocation saved for incident/inspection record.`);
+    const msg = `GPS Location Marked:\nCoordinates: 28.6139° N, 77.2090° E\nKM: 52.5\nTime: ${new Date().toLocaleTimeString()}\n\nLocation saved for incident/inspection record.`;
+    showToast(msg);
+    setActionLog((prev) => [{ time: new Date().toLocaleTimeString(), action: 'Marked GPS location', result: 'Saved', operator: 'Inspector' }, ...prev].slice(0, 20));
   };
 
   return (
     <div className="min-h-screen bg-background">
+      <ConfirmModal
+        open={confirmOpen}
+        title={confirmTitle || ''}
+        message={confirmMessage || ''}
+        onConfirm={() => { if (confirmAction) confirmAction(); closeConfirm(); }}
+        onCancel={closeConfirm}
+      />
       {/* Mobile-First Header */}
       <div className="bg-white border-b shadow-sm">
         <div className="flex items-center justify-between p-4">
@@ -315,7 +366,15 @@ export function TrackManagerDashboard() {
                           <Button 
                             size="sm"
                             className="flex-1"
-                            onClick={() => alert(`Started inspection for section ${selectedSection.id}`)}
+                            onClick={() => showConfirm(
+                              'Start Inspection',
+                              `Start inspection for section ${selectedSection.id}?`,
+                              () => {
+                                showToast(`Started inspection for section ${selectedSection.id}`);
+                                setActionLog((prev) => [{ time: new Date().toLocaleTimeString(), action: `Started inspection ${selectedSection.id}`, result: 'In progress', operator: 'Inspector' }, ...prev].slice(0,20));
+                                closeConfirm();
+                              }
+                            )}
                           >
                             Start Inspection
                           </Button>
@@ -430,11 +489,19 @@ export function TrackManagerDashboard() {
                       ))}
                     </div>
                     
-                    <div className="flex space-x-2 mt-4">
+                      <div className="flex space-x-2 mt-4">
                       <Button 
                         size="sm" 
                         className="flex-1"
-                        onClick={() => alert(`Task ${task.title} started with GPS tracking`)}
+                        onClick={() => showConfirm(
+                          'Start Task',
+                          `Start task: ${task.title}?`,
+                          () => {
+                            showToast(`Task ${task.title} started with GPS tracking`);
+                            setActionLog((prev) => [{ time: new Date().toLocaleTimeString(), action: `Started task: ${task.title}`, result: 'In progress', operator: 'Inspector' }, ...prev].slice(0,20));
+                            closeConfirm();
+                          }
+                        )}
                       >
                         Start Task
                       </Button>
@@ -605,6 +672,34 @@ export function TrackManagerDashboard() {
             </TabsList>
           </div>
         </Tabs>
+
+        {/* Recent Actions Log */}
+        <div className="p-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <CheckSquare className="w-5 h-5 text-green-500" />
+                <span>Recent Actions</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {actionLog.map((a, idx) => (
+                  <div key={idx} className="flex justify-between items-start text-sm">
+                    <div className="flex-1">
+                      <p className="font-medium">{a.action}</p>
+                      <p className="text-green-600 text-xs">{a.result}</p>
+                    </div>
+                    <div className="text-right text-xs text-muted-foreground">
+                      <p>{a.time}</p>
+                      <p>{a.operator}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

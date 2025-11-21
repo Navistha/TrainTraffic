@@ -6,6 +6,8 @@ import { Badge } from '../ui/badge.js';
 import { Clock, Train, MapPin, AlertTriangle, Phone, FileText, CheckCircle } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs.js';
 import { Alert, AlertDescription } from '../ui/alert.js';
+import { showToast } from '../ui/toast.js';
+import ConfirmModal from '../ui/confirm.js';
 import railwayLogo from 'figma:asset/de6da6a664b190e144e4d86f4481b866fee10e67.png';
 
 export function StationMasterDashboard() {
@@ -27,6 +29,32 @@ export function StationMasterDashboard() {
       train: '12615'
     }
   ]);
+  const [actionLog, setActionLog] = useState<any[]>([
+    { time: new Date().toLocaleTimeString(), action: 'Station Master opened dashboard', result: 'Ready', operator: 'User' }
+  ]);
+
+  // confirmation modal state
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmTitle, setConfirmTitle] = useState<string | undefined>(undefined);
+  const [confirmMessage, setConfirmMessage] = useState<string | undefined>(undefined);
+  const [confirmAction, setConfirmAction] = useState<(() => void) | null>(null);
+  const [confirmAnchor, setConfirmAnchor] = useState<DOMRect | null>(null);
+
+  const showConfirm = (title: string, message: string, onConfirm: () => void, anchorRect?: DOMRect | null) => {
+    setConfirmTitle(title);
+    setConfirmMessage(message);
+    setConfirmAction(() => onConfirm);
+    setConfirmAnchor(anchorRect ?? null);
+    setConfirmOpen(true);
+  };
+
+  const closeConfirm = () => {
+    setConfirmOpen(false);
+    setConfirmAction(null);
+    setConfirmTitle(undefined);
+    setConfirmMessage(undefined);
+    setConfirmAnchor(null);
+  };
   
   const upcomingTrains = [
     { 
@@ -82,32 +110,85 @@ export function StationMasterDashboard() {
     { id: 'L2', name: 'Loop Line 2', status: 'maintenance', train: null, signal: 'red' },
   ];
 
-  const acknowledgeOrder = (orderId: number) => {
-    setControlOrders(prev => prev.map(order => 
-      order.id === orderId ? { ...order, acknowledged: true } : order
-    ));
-    alert('Order acknowledged and repeated back to Control');
+  const acknowledgeOrder = (orderId: number, anchorRect?: DOMRect | null) => {
+    showConfirm(
+      'Acknowledge Control Order',
+      `Acknowledge and repeat back Control Order #${orderId}?`,
+      () => {
+        setControlOrders(prev => prev.map(order => 
+          order.id === orderId ? { ...order, acknowledged: true } : order
+        ));
+        const msg = `Order #${orderId} acknowledged and repeated back to Control`;
+        showToast(msg);
+        setActionLog(prev => [{ time: new Date().toLocaleTimeString(), action: `Acknowledge Order #${orderId}`, result: msg, operator: localStorage.getItem('userName') || 'User' }, ...prev]);
+      },
+      anchorRect
+    );
   };
 
-  const setRoute = (trainId: string, platform: string) => {
-    setRouteSet(prev => ({ ...prev, [trainId]: platform }));
-    alert(`Route set for ${trainId} to ${platform} - Signals aligned automatically`);
+  const setRoute = (trainId: string, platform: string, anchorRect?: DOMRect | null) => {
+    showConfirm(
+      'Set Route',
+      `Set route for ${trainId} to ${platform}? Signals will be aligned automatically.`,
+      () => {
+        setRouteSet(prev => ({ ...prev, [trainId]: platform }));
+        const msg = `Route set for ${trainId} to ${platform} - Signals aligned automatically`;
+        showToast(msg);
+        setActionLog(prev => [{ time: new Date().toLocaleTimeString(), action: `Set Route ${trainId} → ${platform}`, result: msg, operator: localStorage.getItem('userName') || 'User' }, ...prev]);
+      },
+      anchorRect
+    );
   };
 
-  const reportArrival = (train: typeof upcomingTrains[number]) => {
-    alert(`Arrival reported to Control: ${train.id} arrived at ${new Date().toLocaleTimeString()}`);
+  const reportArrival = (train: typeof upcomingTrains[number], anchorRect?: DOMRect | null) => {
+    showConfirm(
+      'Report Arrival',
+      `Report arrival of ${train.id} to Control?`,
+      () => {
+        const msg = `Arrival reported to Control: ${train.id} arrived at ${new Date().toLocaleTimeString()}`;
+        showToast(msg);
+        setActionLog(prev => [{ time: new Date().toLocaleTimeString(), action: `Report Arrival ${train.id}`, result: msg, operator: localStorage.getItem('userName') || 'User' }, ...prev]);
+      },
+      anchorRect
+    );
   };
 
-  const reportDeparture = (train: typeof upcomingTrains[number]) => {
-    alert(`Departure reported to Control: ${train.id} departed at ${new Date().toLocaleTimeString()}`);
+  const reportDeparture = (train: typeof upcomingTrains[number], anchorRect?: DOMRect | null) => {
+    showConfirm(
+      'Report Departure',
+      `Report departure of ${train.id} to Control?`,
+      () => {
+        const msg = `Departure reported to Control: ${train.id} departed at ${new Date().toLocaleTimeString()}`;
+        showToast(msg);
+        setActionLog(prev => [{ time: new Date().toLocaleTimeString(), action: `Report Departure ${train.id}`, result: msg, operator: localStorage.getItem('userName') || 'User' }, ...prev]);
+      },
+      anchorRect
+    );
   };
 
-  const grantLineClear = (train: typeof upcomingTrains[number]) => {
-    alert(`Line Clear granted to next station for ${train.id}`);
+  const grantLineClear = (train: typeof upcomingTrains[number], anchorRect?: DOMRect | null) => {
+    showConfirm(
+      'Grant Line Clear',
+      `Grant Line Clear for ${train.id} to next station?`,
+      () => {
+        const msg = `Line Clear granted to next station for ${train.id}`;
+        showToast(msg);
+        setActionLog(prev => [{ time: new Date().toLocaleTimeString(), action: `Grant Line Clear ${train.id}`, result: msg, operator: localStorage.getItem('userName') || 'User' }, ...prev]);
+      },
+      anchorRect
+    );
   };
 
   return (
     <div className="min-h-screen bg-background">
+      <ConfirmModal
+        open={confirmOpen}
+        title={confirmTitle ?? ''}
+        message={confirmMessage ?? ''}
+        onConfirm={() => { if (confirmAction) { confirmAction(); } closeConfirm(); }}
+        onCancel={closeConfirm}
+        anchorRect={confirmAnchor ?? null}
+      />
       {/* Header */}
       <div className="bg-white border-b shadow-sm">
         <div className="flex items-center justify-between p-4">
@@ -261,7 +342,7 @@ export function StationMasterDashboard() {
                       </p>
                       {!routeSet[selectedTrain.id] && (
                         <Button 
-                          onClick={() => setRoute(selectedTrain.id, selectedTrain.platform)}
+                          onClick={(e:any) => setRoute(selectedTrain.id, selectedTrain.platform, (e.currentTarget as HTMLElement).getBoundingClientRect())}
                           className="mt-2 bg-green-600 hover:bg-green-700"
                         >
                           Set Route & Align Signals
@@ -321,8 +402,8 @@ export function StationMasterDashboard() {
                       <div className="space-y-2">
                         {selectedTrain.type === 'Arrival' && !routeSet[selectedTrain.id] && (
                           <Button 
-                            className="w-full bg-green-600 hover:bg-green-700"
-                            onClick={() => setRoute(selectedTrain.id, selectedTrain.platform)}
+                          className="w-full bg-green-600 hover:bg-green-700"
+                            onClick={(e: React.MouseEvent<HTMLElement>) => setRoute(selectedTrain.id, selectedTrain.platform, (e.currentTarget as HTMLElement).getBoundingClientRect())}
                           >
                             Set Route for Arrival
                           </Button>
@@ -331,7 +412,7 @@ export function StationMasterDashboard() {
                         {selectedTrain.type === 'Arrival' && routeSet[selectedTrain.id] && (
                           <Button 
                             className="w-full bg-blue-600 hover:bg-blue-700"
-                            onClick={() => reportArrival(selectedTrain)}
+                            onClick={(e: React.MouseEvent<HTMLElement>) => reportArrival(selectedTrain, (e.currentTarget as HTMLElement).getBoundingClientRect())}
                           >
                             Report Arrival to Control
                           </Button>
@@ -341,13 +422,13 @@ export function StationMasterDashboard() {
                           <>
                             <Button 
                               className="w-full bg-green-600 hover:bg-green-700"
-                              onClick={() => grantLineClear(selectedTrain)}
+                              onClick={(e: React.MouseEvent<HTMLElement>) => grantLineClear(selectedTrain, (e.currentTarget as HTMLElement).getBoundingClientRect())}
                             >
                               Grant Line Clear
                             </Button>
                             <Button 
                               className="w-full bg-blue-600 hover:bg-blue-700"
-                              onClick={() => reportDeparture(selectedTrain)}
+                              onClick={(e: React.MouseEvent<HTMLElement>) => reportDeparture(selectedTrain, (e.currentTarget as HTMLElement).getBoundingClientRect())}
                             >
                               Report Departure
                             </Button>
@@ -357,7 +438,11 @@ export function StationMasterDashboard() {
                         <Button 
                           variant="outline" 
                           className="w-full"
-                          onClick={() => alert('Detention logged with reason')}
+                          onClick={(e: React.MouseEvent<HTMLElement>) => showConfirm('Log Detention', 'Log detention for this train? Provide reason in notes.', () => {
+                            const msg = 'Detention logged with reason';
+                            showToast(msg);
+                            setActionLog(prev => [{ time: new Date().toLocaleTimeString(), action: `Log Detention ${selectedTrain?.id || ''}`, result: msg, operator: localStorage.getItem('userName') || 'User' }, ...prev]);
+                          }, (e.currentTarget as HTMLElement).getBoundingClientRect())}
                         >
                           Log Detention
                         </Button>
@@ -397,7 +482,7 @@ export function StationMasterDashboard() {
                       {!order.acknowledged ? (
                         <Button 
                           size="sm"
-                          onClick={() => acknowledgeOrder(order.id)}
+                          onClick={(e: React.MouseEvent<HTMLElement>) => acknowledgeOrder(order.id, (e.currentTarget as HTMLElement).getBoundingClientRect())}
                           className="ml-4"
                         >
                           Acknowledge & Repeat Back
@@ -437,7 +522,11 @@ export function StationMasterDashboard() {
                   size="lg" 
                   variant="destructive"
                   className="w-full py-6 text-lg"
-                  onClick={() => alert('ACCIDENT REPORTED - Emergency services notified')}
+                  onClick={(e: React.MouseEvent<HTMLElement>) => showConfirm('Report Accident', 'Report an accident and notify emergency services?', () => {
+                    const msg = 'ACCIDENT REPORTED - Emergency services notified';
+                    showToast(msg);
+                    setActionLog(prev => [{ time: new Date().toLocaleTimeString(), action: 'Report Accident', result: msg, operator: localStorage.getItem('userName') || 'User' }, ...prev]);
+                  }, (e.currentTarget as HTMLElement).getBoundingClientRect())}
                 >
                   <AlertTriangle className="w-6 h-6 mr-2" />
                   Report Accident
@@ -447,7 +536,11 @@ export function StationMasterDashboard() {
                   size="lg" 
                   variant="outline"
                   className="w-full py-6 text-lg border-red-500 text-red-700 hover:bg-red-50"
-                  onClick={() => alert('Signal failure reported to Control & Engineering')}
+                  onClick={(e: React.MouseEvent<HTMLElement>) => showConfirm('Signal Failure', 'Report signal failure to Control and Engineering?', () => {
+                    const msg = 'Signal failure reported to Control & Engineering';
+                    showToast(msg);
+                    setActionLog(prev => [{ time: new Date().toLocaleTimeString(), action: 'Report Signal Failure', result: msg, operator: localStorage.getItem('userName') || 'User' }, ...prev]);
+                  }, (e.currentTarget as HTMLElement).getBoundingClientRect())}
                 >
                   Signal Failure
                 </Button>
@@ -456,7 +549,11 @@ export function StationMasterDashboard() {
                   size="lg" 
                   variant="outline"
                   className="w-full py-6 text-lg border-yellow-500 text-yellow-700 hover:bg-yellow-50"
-                  onClick={() => alert('Track defect reported to PWI & Control')}
+                  onClick={(e: React.MouseEvent<HTMLElement>) => showConfirm('Report Track Defect', 'Report track defect to Permanent Way Inspector and Control?', () => {
+                    const msg = 'Track defect reported to PWI & Control';
+                    showToast(msg);
+                    setActionLog(prev => [{ time: new Date().toLocaleTimeString(), action: 'Report Track Defect', result: msg, operator: localStorage.getItem('userName') || 'User' }, ...prev]);
+                  }, (e.currentTarget as HTMLElement).getBoundingClientRect())}
                 >
                   Track Defect
                 </Button>
@@ -465,7 +562,11 @@ export function StationMasterDashboard() {
                   size="lg" 
                   variant="outline"
                   className="w-full py-6 text-lg border-blue-500 text-blue-700 hover:bg-blue-50"
-                  onClick={() => alert('Medical emergency - Ambulance requested')}
+                  onClick={(e: React.MouseEvent<HTMLElement>) => showConfirm('Medical Emergency', 'Request ambulance and report medical emergency?', () => {
+                    const msg = 'Medical emergency - Ambulance requested';
+                    showToast(msg);
+                    setActionLog(prev => [{ time: new Date().toLocaleTimeString(), action: 'Report Medical Emergency', result: msg, operator: localStorage.getItem('userName') || 'User' }, ...prev]);
+                  }, (e.currentTarget as HTMLElement).getBoundingClientRect())}
                 >
                   Medical Emergency
                 </Button>
@@ -496,6 +597,25 @@ export function StationMasterDashboard() {
           </div>
         </TabsContent>
       </Tabs>
+      {/* Recent Actions */}
+      <div className="p-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent Actions</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2 text-sm">
+              {actionLog.length === 0 && <div className="text-muted-foreground">No recent actions</div>}
+              {actionLog.map((a, idx) => (
+                <div key={idx} className="p-2 border rounded bg-white">
+                  <div className="font-medium">{a.action}</div>
+                  <div className="text-muted-foreground text-xs">{a.time} — {a.result}</div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
