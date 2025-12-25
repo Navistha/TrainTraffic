@@ -226,14 +226,14 @@ MODEL_PATH=backend/ml/saved_models/
 
 ## 👥 Team & Contributors
 
-| Name | Role | Responsibilities |
-| :--- | :--- | :--- |
-| **Navistha Pandey** | **Project Manager & Backend** | **Backend API Lead.** Managed project timeline, developed core Booking & Station APIs, and oversaw system integration. |
-| **Nehal Ajmal** | **Core Backend & ML** | **Lead Architect.** Designed the core backend logic, implemented Google OR-Tools for scheduling, and developed the ML concepts. |
-| **Mridul Bajpai** | **Backend (ML)** | **Data Scientist.** Focused specifically on freight delay prediction models, data cleaning, and accuracy tuning. |
-| **Mohammad Zeeshan** | **Full Stack** | **Integration Specialist.** Connected the Django backend with React frontend and ensured seamless data flow. |
-| **Anjali Shukla** | **Frontend** | **UI Developer.** Built the core dashboard interfaces, implemented Shadcn UI components, and handled user interactions. |
-| **Anshuman Sharma** | **Frontend** | **UI Developer.** Developed the visualization charts, responsive layouts, and role-specific views. |
+| Name | Role | Responsibilities | GitHub |
+| :--- | :--- | :--- | :--- |
+| **Navistha Pandey** | **Project Manager & Backend** | **Backend API Lead.** Managed project timeline, developed core Booking & Station APIs, and oversaw system integration. | [@Navistha](https://github.com/Navistha) |
+| **Nehal Ajmal** | **Core Backend & ML** | **Lead Architect.** Designed the core backend logic, implemented Google OR-Tools for scheduling, and developed the ML concepts. | [@NehalAjmal](https://github.com/NehalAjmal) |
+| **Mridul Bajpai** | **Backend (ML)** | **Data Scientist.** Focused specifically on freight delay prediction models, data cleaning, and accuracy tuning. | [@mridul-afk](https://github.com/mridul-afk) |
+| **Mohammad Zeeshan** | **Full Stack** | **Integration Specialist.** Connected the Django backend with React frontend and ensured seamless data flow. |[@CoDx-ZeesH](https://github.com/CoDx-ZeesH) |
+| **Anjali Shukla** | **Frontend** | **UI Developer.** Built the core dashboard interfaces, implemented Shadcn UI components, and handled user interactions. | [@anjliShukla](https://github.com/anjliShukla) |
+| **Anshuman Sharma** | **Frontend** | **UI Developer.** Developed the visualization charts, responsive layouts, and role-specific views. | NA |
 
 ---
 
