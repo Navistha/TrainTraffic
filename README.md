@@ -239,6 +239,4 @@ MODEL_PATH=backend/ml/saved_models/
 
 ## 📄 License
 
-This project is licensed under the **MIT License**. See the `LICENSE` file for details.
-
 © 2025 **Rail Sanchaalak Team**. Built with ❤️ for the Railway Industry.
