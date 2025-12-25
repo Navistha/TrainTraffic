@@ -33,6 +33,7 @@ pydantic_core
 pyparsing
 python-dateutil
 pytz
+requests
 scikit-learn
 scipy
 six
